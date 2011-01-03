@@ -1,0 +1,118 @@
+#!/usr/bin/python
+#
+#    Copyright 2008 Zdravko Bozakov
+#
+#    This file is part of SSHLauncher.
+#
+#    SSHLauncher is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    SSHLauncher is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#    GNU General Public License for more details.
+#
+#    You should have received a copy of the GNU General Public License
+#    along with Foobar.  If not, see <http://www.gnu.org/licenses/>.
+#
+import getopt
+import ConfigParser
+import sshctrl
+import time
+import string
+import sys, re
+import os
+
+try:                                
+    opts, args = getopt.getopt(sys.argv[1:], ":d")
+except getopt.GetoptError:          
+    print "usage: sshlauncher.py [-d] configfile\n"
+    print "\t-d  :\tdebug mode"
+    sys.exit(2)
+
+# read command line options
+for o, a in opts:
+    if o == "-d":
+        print "*** DEBUG mode ***"
+        sshctrl.SshControl.DEBUG = True
+    if o in ("-h", "--help"):
+        print "usage: /sshlauncher.py [-d] configfile"
+        sys.exit()
+
+if not args:
+    print "you must specify a configuration file!\n"
+    raise SystemExit
+else:
+    CONFIGFILE = args[0]
+    print "Using configuration file: %s" %(CONFIGFILE)
+
+defaultPasswort=''
+
+# import bash envionment variables which start with SL_
+defaults={}
+for param in os.environ.keys():
+    if param[:3]=='SL_':
+        defaults[param]=os.environ[param]
+   
+if sshctrl.SshControl.DEBUG :
+    print "Using environment variables: "
+    for d in defaults:
+        print "\t %s = %s" % (d,defaults[d],)
+
+# parse configuration file
+config = ConfigParser.ConfigParser(defaults)
+if not config.read(CONFIGFILE):
+    print "no configuration file named %s!\n" % CONFIGFILE
+    raise SystemExit
+
+t=[]
+for section in config.sections():    
+    try:
+        pwd = config.get(section, 'password')
+    except ConfigParser.NoOptionError:
+        pwd = defaultPasswort
+    
+    try:
+        after = config.get(section, 'after')
+        after = eval( after )
+    except ConfigParser.NoOptionError:
+        after = None
+    
+    try:
+        t.append(sshctrl.SshControl( section, 
+                                     config.get(section, 'host'), 
+                                     config.get(section, 'user'), 
+                                     pwd,
+                                     config.get(section, 'command'), 
+                                     after,
+                                     )
+                 )
+    except ConfigParser.InterpolationMissingOptionError, e:
+        print "\nERROR:\tvariable not defined\n"
+        print e
+        raise SystemExit
+
+sshctrl.SshControl.sshThreads = t;
+print "\n-------------------------------------------------------------------------------\n"
+
+
+for sshThread in t:
+    	sshThread.start()
+
+while t:
+    try:
+        time.sleep(1)
+    except KeyboardInterrupt: 
+#    except : 
+        for sshThread in t:
+            pass
+	    #sshThread.sshDisconnect()
+        print "\n\n Remember to kill all open SSH connections!\n"
+        raise SystemExit
+
+
+if __name__ == "__main__": 
+    print sys.version
+

@@ -1,0 +1,45 @@
+License:
+
+SSHLauncher is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License version 2 as published by
+the Free Software Foundation.
+
+SSHLauncher.KOM is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Spruce; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+Summary:
+
+Simulation and emulation experiments are widely used for investigating
+new approaches and verifying existing theories in communication
+networks. In this report, we present a tool for performing automated
+experiments in distributed testbeds such as Emulab or PlanetLab. Using
+an intuitive configuration file syntax, large sets of complex command
+sequences can be executed with minimal user interaction. As a result,
+the repeated execution of experiments and the generation of
+controlled, documented, and reproducible results is greatly
+facilitated.
+
+Installation:
+
+You will have to install the pexpect package first. For a system-wide 
+installation do
+
+  python setup.py install
+
+you will probably require root privileges. However, SSHLauncher can 
+also be executed as a stand alone application.
+
+Usage:
+
+  sshlauncher [-d] configfile
+
+Please refer to the included PDF file for detailed instructions on setting 
+up the configuration file.
+
+
