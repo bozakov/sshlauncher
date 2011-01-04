@@ -1,5 +1,5 @@
 #
-#    Copyright 2008 Zdravko Bozakov
+#    Copyright 2008 Zdravko Bozakov and Michael Bredel
 #
 #    This file is part of SSHLauncher.
 #
@@ -33,26 +33,43 @@ class TerminateException(Exception): pass
 class SshControl ( threading.Thread ):
     """ Starts a thread which establishes an SSH connection and executes a command. """
     
+    # instance of pxssh
     s = []
-    sshThreads = []                # contains all ssh threads
-    sshThreadsConnected = False    # True if all connections have been established
+    # contains all ssh threads
+    sshThreads = []
 
     # pseudo static vars
     DEBUG = False
+    ESCAPE = False
+    # lsd-style debug output
     DEBUG_LABEL = '\033[1;32mDEBUG\033[m:'
-    BASH = '/bin/bash -is'
+    # start a login bash shell when issuing remote command
+    # TODO this should be an option
+    BASH = '/bin/bash -ls'
+    # commands which should always executed before the command string
     BASH_SETUP = 'unset HISTFILE; '
-    SSH_LOGIN_REPEAT_TIMEOUT = 10
+    # how long should we wait (in seconds) before assuming the ssh connection cannot be established
     SSH_LOGIN_TIMEOUT=15
-    PROMPT_TIMEOUT=5
+    # how long should we wait (in seconds) before attempting to reestablish an ssh connection
+    SSH_LOGIN_REPEAT_TIMEOUT = 5
+    # how long should we wait (in seconds) for an expect (after) string. Consider increasing for very long experiments.
+    PEXPECT_TIMEOUT=86400 # 24 hours
+    # how long should we wait (in seconds) for the prompt
+    PROMPT_TIMEOUT=86400 # 24 hours
 
-    def __init__ ( self, id, hostname, username, passwd, command, after = {}, delay=0 ):
-        """ """
-        self.expectList = {}
+
+
+    def __init__ ( self, id, hostname, username, passwd, command, after = {}, sync = [], delay=0 ):
+        """ initialize class variables """
+
+        self.afterList = {}
+        self.syncList = []
         self.id  = id
-       
+
         self.connected = False
-        self.registered = False
+        self.registeredAfter = False
+        self.registeredSync = False
+        self.syncNotified = False
         self.forcequit = False
         self.init = False
 
@@ -62,43 +79,40 @@ class SshControl ( threading.Thread ):
         self.delay = delay
         self.command = command
         self.after = after
+        self.sync = sync
 
-        
-	threading.Thread.__init__ ( self )
-	
+        self.lock = threading.Lock()
+        self.lockSync = threading.Lock()
+
+        threading.Thread.__init__ ( self )
+
         #self.setDaemon( True )
  
-       
+
         
     def checkConfig (self):
-        """ check if section configuration is valid """
+        """ very rudimentary check for valid section configuration """
 	
         if self.after:            
             # check for circular refences
             for remote_after in [t for t in self.sshThreads if (t.getName() in self.after.keys())]:
                 if (remote_after.after and (self.id in remote_after.after.keys())):
                     print "%s:\t***** ERROR: cirular references %s <-> %s? *****" \
-                        % (self.cid(self.id), self.cid(self.id), self.cid(remote_after.id))
+                        % (self.__cid(self.id), self.__cid(self.id), self.__cid(remote_after.id))
 		    raise ConfigError
 
             # check for invalid section ids
             for a in self.after:
                if not a in [t.id for t in self.sshThreads]:
-                   print "%s:\t***** ERROR: '%s' is not a valid section id *****" % (self.cid(self.id), a)
+                   print "%s:\t***** ERROR: '%s' is not a valid section id *****" % (self.__cid(self.id), a)
                    raise ConfigError
                #print [t.getName() for t in self.sshThreads]
 
-        print "%s:\t configuration seems ok" % (self.cid(self.id))
+        print "%s:\t configuration seems ok" % (self.__cid(self.id))
         return True
 
 
 	
-    def cid (self, id):
-        """ print section id in color """
-	return "\033[1;31m[%s]\033[m" % id
-
-
-
     def run (self):
         """ thread method """
         self.setName( self.id )
@@ -106,7 +120,7 @@ class SshControl ( threading.Thread ):
         time.sleep( self.delay )
 
         # wait until all threads are alive
-        while [ th for th in self.sshThreads if not th.init ]:
+        while [ t for t in self.sshThreads if not t.init ]:
             time.sleep(1)
         
         # register own expect string on thread id specified by after
@@ -114,137 +128,208 @@ class SshControl ( threading.Thread ):
             for t in self.sshThreads :
                 for key in self.after.keys() :
                     if t.getName()==str(key) :
-                        t.register(self.id, self.after[key])
-        self.registered = True
+                        t.registerAfter(self.id, self.after[key])
+        self.registeredAfter = True
 
         # wait until all threads have registered
-        while [ t for t in self.sshThreads if not t.registered ]:
+        while [ t for t in self.sshThreads if not t.registeredAfter ]:
             time.sleep(1)
 
-	self.checkConfig()
+        # register sync expect string on thread id specified by sync 
+        if self.sync: 
+            for t in self.sshThreads :
+                for key in self.sync :
+                    if t.getName()==str(key) :
+                        t.registerSync(self.id )
+        self.registeredSync = True
+
+        # wait until all threads are synchonized 
+        while [ t for t in self.sshThreads if not t.registeredSync ]:
+            time.sleep(1)
+
+        # now check the configuration
+        self.checkConfig()
 	
         # wait until all expect strings registered by current thread have been matched
-        while self.after :
+        while (self.after and not self.syncNotified) :
             time.sleep(1)
             
         # then connect
         self.sshConnect( self.hostname, self.username, self.passwd )
-                
+
+        # notify all other threads in sync-group
+        for tid in self.syncList :
+            for t in self.sshThreads : 
+                if t.getName()==tid :
+                    t.notifySync( self.id )
+        # wait until all sync-group threads have been connected
+        while self.sync :
+            time.sleep(1)
+        # keep execution order
+        while (self.after) :
+            time.sleep(1)
+          
         # execute command string
-        print "%s:\t executing: \033[34m%s\033[m " % (self.cid(self.id), self.command)
-	#self.command = self.BASH_SETUP + self.command	
-	#self.command = 'echo \"unset HISTFILE; ' + self.command + '\" | ' + self.BASH
+        print "%s:\t executing: \033[34m%s\033[m " % (self.__cid(self.id), self.command)
+        #self.command = self.BASH_SETUP + self.command	
         # spawn a new bash session on remote host and pipe command string to it
-	self.command = 'echo \' ' + self.BASH_SETUP + self.command + '\' | ' + self.BASH
+        if SshControl.ESCAPE:
+            self.command = 'echo -e \' ' + self.BASH_SETUP + self.command + '\' | ' + self.BASH
+        else:
+            self.command = 'echo \' ' + self.BASH_SETUP + self.command + '\' | ' + self.BASH
+
+        # send comand
         self.s.sendline( self.command )
         
         # start loop to match expect strings and notify other threads
         self.__expectWait()
+
+        # wait for section command to finish (i.e. reach the prompt) and disconnect
+        if self.s.prompt(self.PROMPT_TIMEOUT) :
+            self.sshDisconnect()
+        else:
+            print "%s:\t did not reach prompt! something went wrong\n" % (self.__cid(self.id),)
+            print self.s.before
+            raise SystemError
+            #if SshControl.DEBUG : self.s.interact()
         
    
                
-    def register ( self, id, afterCommand ) :
+    def registerAfter ( self, id, afterCommand ) :
         """ register an expect string on this block """
+        self.lock.acquire()
         try :
-            self.expectList[afterCommand].append(id)
+            self.afterList[afterCommand].append(id)
         except KeyError :
-            self.expectList[afterCommand] = [id]
-        if SshControl.DEBUG: print self.DEBUG_LABEL + " %s:\t->\t registered \"%s\" on %s" % (self.cid(id), afterCommand, self.cid(self.id))
+            self.afterList[afterCommand] = [id]
+        finally:
+            self.lock.release()
+
+        if SshControl.DEBUG: print self.DEBUG_LABEL + " %s:\t->\t registered \"%s\" on %s" % (self.__cid(id), afterCommand, self.__cid(self.id))
+
+
+
+    def registerSync ( self, id ) :
+        """ register an expect string on this block """
+        self.lockSync.acquire()
+        try :
+            self.syncList.append(id)
+        except KeyError :
+            self.syncList = [id]
+        finally:
+            self.lockSync.release()
+        if SshControl.DEBUG: print self.DEBUG_LABEL + " %s:\t->\t synchronized with %s" % (self.__cid(id), self.__cid(self.id))
+
 
 
     def __expectWait ( self ):
-        """ wait until all expect strings matched and remove corresponding entries from the threads after: queues """
+        """ wait until all expect strings matched and remove
+        corresponding entries from the threads after: queues.  """
         try : 
-            while self.expectList.keys():
-                res = self.s.expect(self.expectList.keys(), 5000)
-                after =  self.expectList.keys()[res]
-                if SshControl.DEBUG: print self.DEBUG_LABEL + " %s:\t \"%s\" matched..." % (self.cid(self.id), after)
-                
-                for tid in self.expectList[after]:
+            while self.afterList.keys():
+                res = self.s.expect(self.afterList.keys(), self.PEXPECT_TIMEOUT)
+                after =  self.afterList.keys()[res]
+                if SshControl.DEBUG: print self.DEBUG_LABEL + " %s:\t \"%s\" matched..." % (self.__cid(self.id), after)
+
+                for tid in self.afterList[after]:
                     for t in self.sshThreads : 
                         if t.getName()==tid :
-                            t.notify( self.id, after )
-                del self.expectList[after]
+                            t.notifyAfter( self.id, after )
 
-            # START EXPERIMENTAL sometimes we get password prompts in a running session -> switch to interactive mode
-            res = self.s.expect([self.s.PROMPT, 'passwor'], timeout=5000) 
-            if res == 1 :
-                time.sleep(50)
-                print "%s:\t still connected! switching to interactive mode:\n" % (self.cid(self.id),)
-                print self.s.before
-                self.s.interact()
-            elif res == 0 :
-                self.sshDisconnect()
-	    # END EXPERIMENTAL
+                self.lock.acquire()
+                try:
+                    del self.afterList[after]
+                finally:
+                    self.lock.release()
+
         except pexpect.EOF :
-            print "%s:\t EOF!" % (self.cid(self.id),)
-        except pexpect.TIMEOUT :
-            print "%s:\t pexpect timed-out waiting for: %s" % (self.cid(self.id), self.expectList.keys())
+            print "%s:\t EOF!" % (self.__cid(self.id),)
+        except pexpect.TIMEOUT, e :
+            print "%s:\t pexpect timed-out waiting for: %s" % (self.__cid(self.id), self.afterList.keys())
+            if SshControl.DEBUG: print str(e)
 
 
 
+    def __cid (self, id):
+        """ print section id in color """
+        return "\033[1;31m[%s]\033[m" % id
 
 
-    def notify( self, id, after ):
+
+    def notifyAfter( self, id, after ):
         """ notify a thread that the expect string has been matched """
-        print "%s:\t notified from %s (matched \"%s\")" % (self.cid(self.id), self.cid(id), after)
-        del self.after[id]
+        print "%s:\t notified from %s (matched \"%s\")" % (self.__cid(self.id), self.__cid(id), after)
+        self.lock.acquire()
+        try:
+            del self.after[id]
+        finally:
+            self.lock.release()
 
 
-        
+
+    def notifySync( self, id ):
+        """ notify a thread that to start in sync mode """
+        print "%s:\t SYNC: notified from %s" % (self.__cid(self.id), self.__cid(id) )
+        self.lockSync.acquire()
+        try:
+            self.sync.remove(id)
+            self.syncNotified = True
+        finally:
+            self.lockSync.release()
+
+
+
     def getInfo (self):
-        print 'thread: %s\tthread alive: %s' % (self.getName(), self.isAlive())
+        """ print some info on the conneciton """
+        print '\nthread: %s\talive: %s' % (self.getName(), self.isAlive())
         if self.s:
-            print 'ssh connection %s' % (self.s.isalive(),)
+            print 'ssh connection is alive :%s' % (self.s.isalive(),)
+            print self.s.PROMPT
 
 
 
     def sshConnect ( self, hostname, username, passwd ):
-        print "%s:\t connecting to %s ... " % (self.cid(self.id), self.hostname)
+        print "%s:\t connecting to %s ... " % (self.__cid(self.id), self.hostname)
         if not self.s:
             self.s = pxssh.pxssh()
         
         try:
-            if self.s.login (hostname, username, passwd, login_timeout=self.SSH_LOGIN_TIMEOUT):
-                print "%s:\t ...connected to %s " % (self.cid(self.id), self.hostname)
+            # p.hollands suggestion: original_prompt=r"][#$]|~[#$]|bash.*?[#$]|[#$] |.*@.*:.*>"
+            if self.s.login (hostname, username, passwd, login_timeout=self.SSH_LOGIN_TIMEOUT, original_prompt=r"[#$]|$", auto_prompt_reset=True):
+                print "%s:\t ...connected to %s " % (self.__cid(self.id), self.hostname)
+                self.s.set_unique_prompt
 
-
-                self.s.prompt(self.PROMPT_TIMEOUT)                    # match the prompt within X seconds
+                # TODO: disabling echo currently only works reliably under bash, so also trying this way
+                self.s.setecho(False)
+                self.s.sendline('stty -echo; ')
+                if not self.s.prompt(self.PROMPT_TIMEOUT): print "could not match the prompt!"   # match the prompt within X seconds
                 self.connected = True
 
-	        # TODO: disabling echo currently only works reliably under bash
-	        self.s.setecho(False)
-		# TODO: so trying to disable echo this way
-                self.s.sendline('stty -echo; ')
-                                
                 if SshControl.DEBUG :
                     print self.DEBUG_LABEL + "\t writing log file to %s.log" % (self.id)  
                     fout = file('%s.log' % (self.id) ,'w')
                     self.s.logfile = fout
             else:
                 raise pxssh.ExceptionPexpect('connection error!')
-
               
         except pxssh.ExceptionPexpect, e:    
-            print "%s:\t SSH session login to %s FAILED.... retrying in %s s" % (self.cid(self.id), self.hostname, self.SSH_LOGIN_REPEAT_TIMEOUT) 
-            if SshControl.DEBUG: print e
+            print "%s:\t SSH session login to %s FAILED.... retrying in %s s" % (self.__cid(self.id), self.hostname, self.SSH_LOGIN_REPEAT_TIMEOUT) 
+            if SshControl.DEBUG: print str(e)
 
             time.sleep(self.SSH_LOGIN_REPEAT_TIMEOUT)
             self.s.close()
             self.s = []
-            self.sshConnect( self.hostname, self.username, self.passwd )     
-            #print str(self.s)
-
+            self.sshConnect( self.hostname, self.username, self.passwd )
 
 
 
     def sshDisconnect ( self ):
         if self.s:
+            self.s.timeout = self.PEXPECT_TIMEOUT 
             self.connected = False
-            self.s.logout()
-            self.s.close()
+            self.s.kill(9)
             self.s = []
-            print "%s:\t disconnected." % (self.cid(self.id))
+            print "%s:\t disconnected." % (self.__cid(self.id))
         SshControl.sshThreads.remove(self)
 
 

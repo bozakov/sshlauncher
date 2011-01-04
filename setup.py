@@ -1,6 +1,6 @@
 from distutils.core import setup
 setup(name='sshlauncher',
-      version='1.0.1.2',
+      version='2.0',
       py_modules=['sshctrl'],
       scripts=['sshlauncher'],
       requires=['pexpect'],

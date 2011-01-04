@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 #
-#    Copyright 2008 Zdravko Bozakov
+#    Copyright 2008 Zdravko Bozakov and Michael Bredel
 #
 #    This file is part of SSHLauncher.
 #
@@ -17,38 +17,46 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Foobar.  If not, see <http://www.gnu.org/licenses/>.
 #
-import getopt
 import ConfigParser
 import sshctrl
 import time
 import string
-import sys, re
+import sys
+import re
 import os
 
-try:                                
-    opts, args = getopt.getopt(sys.argv[1:], ":d")
-except getopt.GetoptError:          
-    print "usage: sshlauncher.py [-d] configfile\n"
-    print "\t-d  :\tdebug mode"
-    sys.exit(2)
+from optparse import OptionParser
 
-# read command line options
-for o, a in opts:
-    if o == "-d":
-        print "*** DEBUG mode ***"
-        sshctrl.SshControl.DEBUG = True
-    if o in ("-h", "--help"):
-        print "usage: /sshlauncher.py [-d] configfile"
-        sys.exit()
+parser = OptionParser()
+parser.add_option("-d", "--debug",
+                  action="store_true",
+                  dest="debug",
+                  default=False,                  
+                  help="enable debug mode")
+parser.add_option("-e", "--escape",
+                  action="store_true",
+                  dest="escape",
+                  default=False,                  
+                  help="enable interpretation of backslash escapes in comands")
 
-if not args:
+(opt, args) = parser.parse_args()
+
+try:
+    configfile = args[0]
+except (IndexError, IOError):
     print "you must specify a configuration file!\n"
     raise SystemExit
-else:
-    CONFIGFILE = args[0]
-    print "Using configuration file: %s" %(CONFIGFILE)
 
-defaultPasswort=''
+if opt.debug:
+    sshctrl.SshControl.DEBUG = opt.debug
+    print "*** DEBUG mode ***"
+if opt.escape:
+    sshctrl.SshControl.ESCAPE = opt.escape
+    print "*** ESCAPE mode ***"
+
+
+# set empty default password
+defaultPassword=''
 
 # import bash envionment variables which start with SL_
 defaults={}
@@ -56,23 +64,26 @@ for param in os.environ.keys():
     if param[:3]=='SL_':
         defaults[param]=os.environ[param]
    
-if sshctrl.SshControl.DEBUG :
+if sshctrl.SshControl.DEBUG and defaults:
     print "Using environment variables: "
     for d in defaults:
         print "\t %s = %s" % (d,defaults[d],)
 
 # parse configuration file
 config = ConfigParser.ConfigParser(defaults)
-if not config.read(CONFIGFILE):
-    print "no configuration file named %s!\n" % CONFIGFILE
+if not config.read(configfile):
+    print "no configuration file named %s!\n" % configfile
     raise SystemExit
 
-t=[]
+# create empty thread list
+threadList=[]
+
+# parse config file sections
 for section in config.sections():    
     try:
         pwd = config.get(section, 'password')
     except ConfigParser.NoOptionError:
-        pwd = defaultPasswort
+        pwd = defaultPassword
     
     try:
         after = config.get(section, 'after')
@@ -81,35 +92,43 @@ for section in config.sections():
         after = None
     
     try:
-        t.append(sshctrl.SshControl( section, 
-                                     config.get(section, 'host'), 
-                                     config.get(section, 'user'), 
-                                     pwd,
-                                     config.get(section, 'command'), 
-                                     after,
-                                     )
-                 )
+        sync = config.get(section, 'sync')
+        sync = eval( sync )
+    except ConfigParser.NoOptionError:
+        sync = None
+    
+    try:
+        threadList.append(
+            sshctrl.SshControl( 
+                section, 
+                config.get(section, 'host'), 
+                config.get(section, 'user'), 
+                pwd,
+                config.get(section, 'command'), 
+                after,
+                sync,
+            )
+        )
     except ConfigParser.InterpolationMissingOptionError, e:
         print "\nERROR:\tvariable not defined\n"
         print e
         raise SystemExit
 
-sshctrl.SshControl.sshThreads = t;
-print "\n-------------------------------------------------------------------------------\n"
+sshctrl.SshControl.sshThreads = threadList;
+print "-"*80
+print "\n"
 
-
-for sshThread in t:
+# start all threads in thread list
+for sshThread in threadList:
     	sshThread.start()
 
-while t:
+while threadList:
     try:
         time.sleep(1)
     except KeyboardInterrupt: 
-#    except : 
-        for sshThread in t:
-            pass
-	    #sshThread.sshDisconnect()
-        print "\n\n Remember to kill all open SSH connections!\n"
+        for sshThread in threadList:
+            sshThread.sshDisconnect()
+        print "\n\n Terminated!\n"
         raise SystemExit
 
 

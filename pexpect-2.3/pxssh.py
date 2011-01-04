@@ -130,8 +130,10 @@ class pxssh (spawn):
         # I came up with these based on what seemed reliable for
         # connecting to a heavily loaded machine I have.
         # If latency is worse than these values then this will fail.
-
-        self.read_nonblocking(size=10000,timeout=1) # GAS: Clear out the cache before getting the prompt
+        try:
+    	     self.read_nonblocking(size=10000,timeout=1) # GAS: Clear out the cache before getting the prompt
+        except TIMEOUT:
+	     pass
         time.sleep(0.1)
         self.sendline()
         time.sleep(0.5)
@@ -240,9 +242,9 @@ class pxssh (spawn):
         else: # Unexpected 
             self.close()
             raise ExceptionPxssh ('unexpected login response')
-        if not self.synch_original_prompt():
-            self.close()
-            raise ExceptionPxssh ('could not synchronize with original prompt')
+        #if not self.synch_original_prompt():
+        #    self.close()
+        #    raise ExceptionPxssh ('could not synchronize with original prompt')
         # We appear to be in.
         # set shell prompt to something unique.
         if auto_prompt_reset:
