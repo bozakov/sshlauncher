@@ -27,6 +27,13 @@ import os
 
 from optparse import OptionParser
 
+
+VERSION="2.0.2"
+# set empty default password
+DEFAULTPASSWORD=''
+
+
+
 parser = OptionParser()
 parser.add_option("-d", "--debug",
                   action="store_true",
@@ -55,10 +62,8 @@ if opt.escape:
     print "*** ESCAPE mode ***"
 
 
-# set empty default password
-defaultPassword=''
 
-# import bash envionment variables which start with SL_
+# import all bash envionment variables which start with SL_
 defaults={}
 for param in os.environ.keys():
     if param[:3]=='SL_':
@@ -83,7 +88,7 @@ for section in config.sections():
     try:
         pwd = config.get(section, 'password')
     except ConfigParser.NoOptionError:
-        pwd = defaultPassword
+        pwd = DEFAULTPASSWORD
     
     try:
         after = config.get(section, 'after')
@@ -132,6 +137,7 @@ while threadList:
         raise SystemExit
 
 
-if __name__ == "__main__": 
+if __name__ == "__main__":
+    print "SSHLauncher version %s" % VERSION
     print sys.version
 

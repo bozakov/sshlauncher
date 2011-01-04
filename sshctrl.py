@@ -30,10 +30,10 @@ class ConfigError(Exception):
 
 class TerminateException(Exception): pass
 
-class SshControl ( threading.Thread ):
+class SshControl ( threading.Thread):
     """ Starts a thread which establishes an SSH connection and executes a command. """
     
-    # instance of pxssh
+    # pxssh instance 
     s = []
     # contains all ssh threads
     sshThreads = []
@@ -59,7 +59,7 @@ class SshControl ( threading.Thread ):
 
 
 
-    def __init__ ( self, id, hostname, username, passwd, command, after = {}, sync = [], delay=0 ):
+    def __init__ ( self, id, hostname, username, passwd, command, after = {}, sync = [], delay=0):
         """ initialize class variables """
 
         self.afterList = {}
@@ -84,9 +84,8 @@ class SshControl ( threading.Thread ):
         self.lock = threading.Lock()
         self.lockSync = threading.Lock()
 
-        threading.Thread.__init__ ( self )
-
-        #self.setDaemon( True )
+        threading.Thread.__init__ ( self)
+        self.setDaemon( True)
  
 
         
@@ -115,9 +114,9 @@ class SshControl ( threading.Thread ):
 	
     def run (self):
         """ thread method """
-        self.setName( self.id )
+        self.setName(self.id)
         self.init = True    
-        time.sleep( self.delay )
+        time.sleep(self.delay)
 
         # wait until all threads are alive
         while [ t for t in self.sshThreads if not t.init ]:
@@ -140,7 +139,7 @@ class SshControl ( threading.Thread ):
             for t in self.sshThreads :
                 for key in self.sync :
                     if t.getName()==str(key) :
-                        t.registerSync(self.id )
+                        t.registerSync(self.id)
         self.registeredSync = True
 
         # wait until all threads are synchonized 
@@ -155,13 +154,13 @@ class SshControl ( threading.Thread ):
             time.sleep(1)
             
         # then connect
-        self.sshConnect( self.hostname, self.username, self.passwd )
+        self.sshConnect(self.hostname, self.username, self.passwd)
 
         # notify all other threads in sync-group
         for tid in self.syncList :
             for t in self.sshThreads : 
                 if t.getName()==tid :
-                    t.notifySync( self.id )
+                    t.notifySync(self.id)
         # wait until all sync-group threads have been connected
         while self.sync :
             time.sleep(1)
@@ -179,7 +178,7 @@ class SshControl ( threading.Thread ):
             self.command = 'echo \' ' + self.BASH_SETUP + self.command + '\' | ' + self.BASH
 
         # send comand
-        self.s.sendline( self.command )
+        self.s.sendline(self.command)
         
         # start loop to match expect strings and notify other threads
         self.__expectWait()
@@ -195,7 +194,7 @@ class SshControl ( threading.Thread ):
         
    
                
-    def registerAfter ( self, id, afterCommand ) :
+    def registerAfter (self, id, afterCommand) :
         """ register an expect string on this block """
         self.lock.acquire()
         try :
@@ -209,7 +208,7 @@ class SshControl ( threading.Thread ):
 
 
 
-    def registerSync ( self, id ) :
+    def registerSync (self, id) :
         """ register an expect string on this block """
         self.lockSync.acquire()
         try :
@@ -222,7 +221,7 @@ class SshControl ( threading.Thread ):
 
 
 
-    def __expectWait ( self ):
+    def __expectWait (self):
         """ wait until all expect strings matched and remove
         corresponding entries from the threads after: queues.  """
         try : 
@@ -234,7 +233,7 @@ class SshControl ( threading.Thread ):
                 for tid in self.afterList[after]:
                     for t in self.sshThreads : 
                         if t.getName()==tid :
-                            t.notifyAfter( self.id, after )
+                            t.notifyAfter(self.id, after)
 
                 self.lock.acquire()
                 try:
@@ -256,7 +255,7 @@ class SshControl ( threading.Thread ):
 
 
 
-    def notifyAfter( self, id, after ):
+    def notifyAfter(self, id, after):
         """ notify a thread that the expect string has been matched """
         print "%s:\t notified from %s (matched \"%s\")" % (self.__cid(self.id), self.__cid(id), after)
         self.lock.acquire()
@@ -267,9 +266,9 @@ class SshControl ( threading.Thread ):
 
 
 
-    def notifySync( self, id ):
+    def notifySync(self, id):
         """ notify a thread that to start in sync mode """
-        print "%s:\t SYNC: notified from %s" % (self.__cid(self.id), self.__cid(id) )
+        print "%s:\t SYNC: notified from %s" % (self.__cid(self.id), self.__cid(id))
         self.lockSync.acquire()
         try:
             self.sync.remove(id)
@@ -288,7 +287,7 @@ class SshControl ( threading.Thread ):
 
 
 
-    def sshConnect ( self, hostname, username, passwd ):
+    def sshConnect (self, hostname, username, passwd):
         print "%s:\t connecting to %s ... " % (self.__cid(self.id), self.hostname)
         if not self.s:
             self.s = pxssh.pxssh()
@@ -302,7 +301,8 @@ class SshControl ( threading.Thread ):
                 # TODO: disabling echo currently only works reliably under bash, so also trying this way
                 self.s.setecho(False)
                 self.s.sendline('stty -echo; ')
-                if not self.s.prompt(self.PROMPT_TIMEOUT): print "could not match the prompt!"   # match the prompt within X seconds
+                if not self.s.prompt(self.PROMPT_TIMEOUT):
+                    print "could not match the prompt!"   # match the prompt within X seconds
                 self.connected = True
 
                 if SshControl.DEBUG :
@@ -319,11 +319,11 @@ class SshControl ( threading.Thread ):
             time.sleep(self.SSH_LOGIN_REPEAT_TIMEOUT)
             self.s.close()
             self.s = []
-            self.sshConnect( self.hostname, self.username, self.passwd )
+            self.sshConnect(self.hostname, self.username, self.passwd)
 
 
 
-    def sshDisconnect ( self ):
+    def sshDisconnect (self):
         if self.s:
             self.s.timeout = self.PEXPECT_TIMEOUT 
             self.connected = False
