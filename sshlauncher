@@ -33,8 +33,9 @@ VERSION="2.0.2"
 DEFAULTPASSWORD=''
 
 
-
-parser = OptionParser()
+usage = "usage: %prog [options] configfile"
+ver = "version %s" % VERSION
+parser = OptionParser(usage=usage, version=ver)
 parser.add_option("-d", "--debug",
                   action="store_true",
                   dest="debug",
