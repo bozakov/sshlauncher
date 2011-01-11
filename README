@@ -1,17 +1,22 @@
+SSHLauncher facilitates the execution of distributed, reproducible,
+SSH based experiments 
+
+Copyright (c) 2008 Zdravko Bozakov
+
 License:
 
-SSHLauncher is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License version 2 as published by
-the Free Software Foundation.
+SSHLauncher is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation, either version 3 of the License, or (at your
+option) any later version.
 
-SSHLauncher is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with Spruce; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 Summary:
 
@@ -28,18 +33,19 @@ facilitated.
 Installation:
 
 You will have to install the pexpect package first. 
-For a system-wide SSHLauncher installation do
+For a system-wide SSHLauncher installation run
 
-  python setup.py install
+$ python setup.py install
 
-you will probably require root privileges. However, SSHLauncher can 
-also be executed as a stand alone application from the local directory.
+you will probably require root privileges. However, SSHLauncher can
+also be executed as a stand alone application from the local
+directory.
 
 Usage:
 
-  sshlauncher [-d] configfile
+$ sshlauncher [-d] configfile
 
-Please refer to the included PDF file for detailed instructions on setting 
-up the configuration file.
+Please refer to the included PDF file for detailed instructions on
+setting up the configuration file.
 
 
