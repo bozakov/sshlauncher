@@ -119,9 +119,9 @@ for section in config.sections():
                 )
             )
     except ConfigParser.InterpolationMissingOptionError, e:
-         print "\nERROR:\tvariable not defined\n"
-         print e
-         raise SystemExit
+        print "\nERROR:\tvariable not defined\n"
+        print e
+        raise SystemExit
 
 sshctrl.SshControl.sshThreads = threadList;
 
@@ -130,7 +130,7 @@ print "\n"
 
 # start all threads in thread list
 for sshThread in threadList:
-    	sshThread.start()
+        sshThread.start()
 
 while threadList:
     try:
