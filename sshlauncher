@@ -102,25 +102,29 @@ for section in config.sections():
         sync = eval( sync )
     except ConfigParser.NoOptionError:
         sync = None
-    
+
+    #CK: maybe place another separator here (now: space)
+    host = config.get(section, 'host').split() 
     try:
-        threadList.append(
-            sshctrl.SshControl( 
-                section, 
-                config.get(section, 'host'), 
-                config.get(section, 'user'), 
-                pwd,
-                config.get(section, 'command'), 
-                after,
-                sync,
+        for i in range(len(host)):
+            threadList.append(
+                sshctrl.SshControl( 
+                    section, 
+                    host[i], 
+                    config.get(section, 'user'), 
+                    pwd,
+                    config.get(section, 'command'), 
+                    after,
+                    sync,
+                )
             )
-        )
     except ConfigParser.InterpolationMissingOptionError, e:
-        print "\nERROR:\tvariable not defined\n"
-        print e
-        raise SystemExit
+         print "\nERROR:\tvariable not defined\n"
+         print e
+         raise SystemExit
 
 sshctrl.SshControl.sshThreads = threadList;
+
 print "-"*80
 print "\n"
 
@@ -141,4 +145,3 @@ while threadList:
 if __name__ == "__main__":
     print "SSHLauncher version %s" % VERSION
     print sys.version
-
