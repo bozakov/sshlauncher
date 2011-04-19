@@ -45,7 +45,7 @@ parser.add_option("-e", "--escape",
                   action="store_true",
                   dest="escape",
                   default=False,                  
-                  help="enable interpretation of backslash escapes in comands")
+                  help="enable interpretation of backslash escapes in commands")
 
 (opt, args) = parser.parse_args()
 
