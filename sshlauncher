@@ -28,9 +28,11 @@ import os
 from optparse import OptionParser
 
 
-VERSION="2.0.2"
+VERSION="2.0.3"
 # set empty default password
 DEFAULTPASSWORD=''
+# set default ssh port 22
+DEFAULTPORT=22
 
 
 usage = "usage: %prog [options] configfile"
@@ -46,6 +48,11 @@ parser.add_option("-e", "--escape",
                   dest="escape",
                   default=False,                  
                   help="enable interpretation of backslash escapes in commands")
+parser.add_option("-s", "--simulate",
+                  action="store_true",
+                  dest="simulate",
+                  default=False,                  
+                  help="simulates the sshlauncher configuration by replacing commands by relevant echos")
 
 (opt, args) = parser.parse_args()
 
@@ -61,6 +68,9 @@ if opt.debug:
 if opt.escape:
     sshctrl.SshControl.ESCAPE = opt.escape
     print "*** ESCAPE mode ***"
+if opt.simulate:
+    sshctrl.SshControl.SIMULATE = opt.simulate
+    print "*** SIMULATE mode ***"
 
 
 
@@ -92,6 +102,11 @@ for section in config.sections():
         pwd = DEFAULTPASSWORD
     
     try:
+        port = config.get(section, 'port')
+    except ConfigParser.NoOptionError:
+        port = DEFAULTPORT
+    
+    try:
         after = config.get(section, 'after')
         after = eval( after )
     except ConfigParser.NoOptionError:
@@ -111,6 +126,7 @@ for section in config.sections():
                 sshctrl.SshControl( 
                     section, 
                     host[i], 
+                    port,
                     config.get(section, 'user'), 
                     pwd,
                     config.get(section, 'command'), 

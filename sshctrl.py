@@ -41,6 +41,7 @@ class SshControl ( threading.Thread):
     # pseudo static vars
     DEBUG = False
     ESCAPE = False
+    SIMULATE = False
     # lsd-style debug output
     DEBUG_LABEL = '\033[1;32mDEBUG\033[m:'
     # start a login bash shell when issuing remote command
@@ -59,7 +60,7 @@ class SshControl ( threading.Thread):
 
 
 
-    def __init__ ( self, id, hostname, username, passwd, command, after = {}, sync = [], delay=0):
+    def __init__ ( self, id, hostname, port, username, passwd, command, after = {}, sync = [], delay=0):
         """ initialize class variables """
 
         self.afterList = {}
@@ -80,6 +81,7 @@ class SshControl ( threading.Thread):
         self.command = command
         self.after = after
         self.sync = sync
+        self.port = port
 
         self.lock = threading.Lock()
         self.lockSync = threading.Lock()
@@ -100,12 +102,20 @@ class SshControl ( threading.Thread):
                         % (self.__cid(self.id), self.__cid(self.id), self.__cid(remote_after.id))
 		    raise ConfigError
 
-            # check for invalid section ids
+            # check for invalid section ids in AFTER
             for a in self.after:
                if not a in [t.id for t in self.sshThreads]:
-                   print "%s:\t***** ERROR: '%s' is not a valid section id *****" % (self.__cid(self.id), a)
+                   print "%s:\t***** ERROR: '%s' is not a valid section id in AFTER *****" % (self.__cid(self.id), a)
                    raise ConfigError
                #print [t.getName() for t in self.sshThreads]
+
+            # check for invalid section ids in SYNC
+            if not (self.sync is None):
+               for a in self.sync:
+                  if not a in [t.id for t in self.sshThreads]:
+                     print "%s:\t***** ERROR: '%s' is not a valid section id in SYNC *****" % (self.__cid(self.id), a)
+                     self.sync.remove(a);
+                  #print [t.getName() for t in self.sshThreads]
 
         print "%s:\t configuration seems ok" % (self.__cid(self.id))
         return True
@@ -154,7 +164,7 @@ class SshControl ( threading.Thread):
             time.sleep(1)
             
         # then connect
-        self.sshConnect(self.hostname, self.username, self.passwd)
+        self.sshConnect(self.hostname, self.port, self.username, self.passwd)
 
         # notify all other threads in sync-group
         for tid in self.syncList :
@@ -168,6 +178,10 @@ class SshControl ( threading.Thread):
         while (self.after) :
             time.sleep(1)
           
+		# If simulate only
+		if SshControl.SIMULATE:
+			self.command = self.simCommand()
+
         # execute command string
         print "%s:\t executing: \033[34m%s\033[m " % (self.__cid(self.id), self.command)
         #self.command = self.BASH_SETUP + self.command	
@@ -287,14 +301,15 @@ class SshControl ( threading.Thread):
 
 
 
-    def sshConnect (self, hostname, username, passwd):
-        print "%s:\t connecting to %s ... " % (self.__cid(self.id), self.hostname)
+    def sshConnect (self, hostname, port, username, passwd):
+		sshport = int(port)
+        print "%s:\t connecting to %s:%s ... " % (self.__cid(self.id), self.hostname, self.port)
         if not self.s:
             self.s = pxssh.pxssh()
         
         try:
             # p.hollands suggestion: original_prompt=r"][#$]|~[#$]|bash.*?[#$]|[#$] |.*@.*:.*>"
-            if self.s.login (hostname, username, passwd, login_timeout=self.SSH_LOGIN_TIMEOUT, original_prompt=r"[#$]|$", auto_prompt_reset=True):
+            if self.s.login (hostname, username, passwd, login_timeout=self.SSH_LOGIN_TIMEOUT, original_prompt=r"[#$]|$", port=sshport, auto_prompt_reset=True):
                 print "%s:\t ...connected to %s " % (self.__cid(self.id), self.hostname)
                 self.s.set_unique_prompt
 
@@ -319,7 +334,7 @@ class SshControl ( threading.Thread):
             time.sleep(self.SSH_LOGIN_REPEAT_TIMEOUT)
             self.s.close()
             self.s = []
-            self.sshConnect(self.hostname, self.username, self.passwd)
+            self.sshConnect(self.hostname, self.port, self.username, self.passwd)
 
 
 
@@ -331,5 +346,14 @@ class SshControl ( threading.Thread):
             self.s = []
             print "%s:\t disconnected." % (self.__cid(self.id))
         SshControl.sshThreads.remove(self)
+
+
+    def simCommand (self):
+		result = ""
+		for t in self.sshThreads :
+			if not (t.after is None):
+				if self.id in t.after.keys():
+					result = result + "echo \"" + t.after.get(self.id) + "\"; "
+		return result
 
 

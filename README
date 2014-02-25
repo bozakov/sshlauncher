@@ -43,7 +43,7 @@ directory.
 
 Usage:
 
-$ sshlauncher [-d] configfile
+$ sshlauncher [-d] [-e] [-s] configfile
 
 Please refer to the included PDF file for detailed instructions on
 setting up the configuration file.
