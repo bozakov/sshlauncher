@@ -178,9 +178,9 @@ class SshControl ( threading.Thread):
         while (self.after) :
             time.sleep(1)
           
-		# If simulate only
-		if SshControl.SIMULATE:
-			self.command = self.simCommand()
+        # if simulate only
+        if SshControl.SIMULATE:
+            self.command = self.simCommand()
 
         # execute command string
         print "%s:\t executing: \033[34m%s\033[m " % (self.__cid(self.id), self.command)
@@ -302,7 +302,7 @@ class SshControl ( threading.Thread):
 
 
     def sshConnect (self, hostname, port, username, passwd):
-		sshport = int(port)
+        sshport = int(port)
         print "%s:\t connecting to %s:%s ... " % (self.__cid(self.id), self.hostname, self.port)
         if not self.s:
             self.s = pxssh.pxssh()
