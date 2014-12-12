@@ -64,13 +64,13 @@ except (IndexError, IOError):
     raise SystemExit
 
 if opt.debug:
-    sshctrl.SshControl.DEBUG = opt.debug
+    sshctrl.DEBUG = opt.debug
     print "*** DEBUG mode ***"
 if opt.escape:
-    sshctrl.SshControl.ESCAPE = opt.escape
+    sshctrl.SSHControl.ESCAPE = opt.escape
     print "*** ESCAPE mode ***"
 if opt.simulate:
-    sshctrl.SshControl.SIMULATE = opt.simulate
+    sshctrl.SSHControl.SIMULATE = opt.simulate
     print "*** SIMULATE mode ***"
 
 
@@ -81,7 +81,7 @@ for param in os.environ.keys():
     if param[:3]=='SL_':
         defaults[param]=os.environ[param]
    
-if sshctrl.SshControl.DEBUG and defaults:
+if sshctrl.DEBUG and defaults:
     print "Using environment variables: "
     for d in defaults:
         print "\t %s = %s" % (d,defaults[d],)
@@ -113,7 +113,7 @@ for section in config.sections():
     except ConfigParser.NoOptionError:
         after = None
 
-        try:
+    try:
         sync = config.get(section, 'sync')
         sync = eval(sync)
     except ConfigParser.NoOptionError:
@@ -123,7 +123,7 @@ for section in config.sections():
     hosts = config.get(section, 'host').split()
     try:
         for host in hosts:
-            threadList.append(sshctrl.SshControl(section, host, port,
+            threadList.append(sshctrl.SSHControl(section, host, port,
                                                  config.get(section, 'user'), pwd,
                                                  config.get(section, 'command'), after, sync,))
     except ConfigParser.InterpolationMissingOptionError as e:
@@ -131,7 +131,7 @@ for section in config.sections():
         print e
         raise SystemExit
 
-sshctrl.SshControl.sshThreads = threadList;
+sshctrl.SSHControl.ssh_threads = threadList;
 
 print "-"*80
 print "\n"
