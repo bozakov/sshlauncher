@@ -18,15 +18,17 @@
 #    along with Foobar.  If not, see <http://www.gnu.org/licenses/>.
 #
 import ConfigParser
-import sshctrl
 import time
 import string
 import sys
 import re
 import os
+import logging
 
 import code
 from optparse import OptionParser
+
+import sshctrl
 
 
 VERSION="2.0.3"
@@ -72,7 +74,6 @@ if opt.escape:
 if opt.simulate:
     sshctrl.SSHControl.SIMULATE = opt.simulate
     print "*** SIMULATE mode ***"
-
 
 
 # import all bash envionment variables which start with SL_
@@ -150,6 +151,6 @@ while threadList:
         raise SystemExit
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     print "SSHLauncher version %s" % VERSION
     print sys.version
