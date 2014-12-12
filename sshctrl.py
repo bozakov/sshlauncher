@@ -16,8 +16,12 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Foobar.  If not, see <http://www.gnu.org/licenses/>.
 #
-import pxssh
-import pexpect
+try:
+    import pxssh
+    import pexpect
+except ImportError:
+    print "could not find pexpect module. please install it before running sshlauncher."
+    raise SystemError
 import threading
 import thread
 import time
