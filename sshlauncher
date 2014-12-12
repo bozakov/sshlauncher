@@ -25,6 +25,7 @@ import sys
 import re
 import os
 
+import code
 from optparse import OptionParser
 
 
@@ -108,33 +109,24 @@ for section in config.sections():
     
     try:
         after = config.get(section, 'after')
-        after = eval( after )
+        after = eval(after)
     except ConfigParser.NoOptionError:
         after = None
-    
-    try:
+
+        try:
         sync = config.get(section, 'sync')
-        sync = eval( sync )
+        sync = eval(sync)
     except ConfigParser.NoOptionError:
         sync = None
 
     #CK: maybe place another separator here (now: space)
-    host = config.get(section, 'host').split() 
+    hosts = config.get(section, 'host').split()
     try:
-        for i in range(len(host)):
-            threadList.append(
-                sshctrl.SshControl( 
-                    section, 
-                    host[i], 
-                    port,
-                    config.get(section, 'user'), 
-                    pwd,
-                    config.get(section, 'command'), 
-                    after,
-                    sync,
-                )
-            )
-    except ConfigParser.InterpolationMissingOptionError, e:
+        for host in hosts:
+            threadList.append(sshctrl.SshControl(section, host, port,
+                                                 config.get(section, 'user'), pwd,
+                                                 config.get(section, 'command'), after, sync,))
+    except ConfigParser.InterpolationMissingOptionError as e:
         print "\nERROR:\tvariable not defined\n"
         print e
         raise SystemExit

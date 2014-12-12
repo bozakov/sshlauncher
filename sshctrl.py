@@ -25,6 +25,7 @@ except ImportError:
 import threading
 import thread
 import time
+import code
 
 
 class ConfigError(Exception):
@@ -53,6 +54,7 @@ class SshControl (threading.Thread):
     SIMULATE = False
     # lsd-style debug output
     DEBUG_LABEL = '\033[1;32mDEBUG\033[m:'
+    ERROR_LABEL = '\033[1;32mERROR\033[m:'
     # start a login (l) or interactive(i) bash shell when issuing remote command
     # TODO this should be an option
     BASH = '/bin/bash -ls'
@@ -175,7 +177,8 @@ class SshControl (threading.Thread):
             time.sleep(1)
 
         # then connect
-        self.sshConnect(self.hostname, self.port, self.username, self.passwd)
+        if self.sshConnect(self.hostname, self.port, self.username, self.passwd)==False:
+            return #TODO
 
         # notify all other threads in sync-group
         for tid in self.syncList:
@@ -274,6 +277,8 @@ class SshControl (threading.Thread):
             if SshControl.DEBUG: print str(e)
 
 
+    def __str__(self):
+        return "\033[1;31m[%s]\033[m" % self.id
 
     def __cid(self, id):
         """print section id in color"""
@@ -301,7 +306,6 @@ class SshControl (threading.Thread):
             self.lockSync.release()
 
 
-
     def getInfo(self):
         """print some info on the conneciton"""
         print '\nthread: %s\talive: %s' % (self.getName(), self.isAlive())
@@ -312,38 +316,57 @@ class SshControl (threading.Thread):
 
     def sshConnect(self, hostname, port, username, passwd):
         sshport = int(port)
-        print "%s:\t connecting to %s:%s ... " % (self.__cid(self.id), self.hostname, self.port)
+        print "%s:\t connecting to %s:%s ... " % (self.__cid(self.id),
+                                                  self.hostname, self.port)
         if not self.s:
             self.s = pxssh.pxssh()
 
+            #code.interact(local=locals())
+
         try:
             # p.hollands suggestion: original_prompt=r"][#$]|~[#$]|bash.*?[#$]|[#$] |.*@.*:.*>"
-            if self.s.login(hostname, username, passwd, login_timeout=self.SSH_LOGIN_TIMEOUT, original_prompt=r"[#$]|$", port=sshport, auto_prompt_reset=True):
-                print "%s:\t ...connected to %s " % (self.__cid(self.id), self.hostname)
-                self.s.set_unique_prompt
+            # BROKEN original_prompt=r"[#$]|$"
+            self.s.login(hostname, username, passwd,
+                            login_timeout=self.SSH_LOGIN_TIMEOUT,
+                            port=sshport, auto_prompt_reset=True)
+            print "%s:\t ...connected to %s " % (self.__cid(self.id), self.hostname)
 
-                # TODO: disabling echo currently only works reliably under bash, so also trying this way
-                self.s.setecho(False)
-                self.s.sendline('stty -echo; ')
-                if not self.s.prompt(self.PROMPT_TIMEOUT):
+            self.s.set_unique_prompt
+
+            # TODO: disabling echo currently only works reliably under bash, so also trying this way
+            self.s.setecho(False)
+            self.s.sendline('stty -echo; ')
+            if not self.s.prompt(self.PROMPT_TIMEOUT):
                     print "could not match the prompt!"   # match the prompt within X seconds
-                self.connected = True
+            self.connected = True
 
-                if SshControl.DEBUG:
+            if SshControl.DEBUG:
                     print self.DEBUG_LABEL + "\t writing log file to %s.log" % (self.id)
                     fout = file('%s.log' % (self.id), 'w')
                     self.s.logfile = fout
-            else:
-                raise pxssh.ExceptionPexpect('connection error!')
 
-        except pxssh.ExceptionPexpect, e:
-            print "%s:\t SSH session login to %s FAILED.... retrying in %s s" % (self.__cid(self.id), self.hostname, self.SSH_LOGIN_REPEAT_TIMEOUT)
+        except pxssh.ExceptionPxssh as e:
             if SshControl.DEBUG: print str(e)
+
+            if e.message=='password refused':
+                print str(self) + ':\t' + str(e)
+                print 'NOT continuing!' # TODO
+                self.s.close()
+                self.s = []
+                return False
+
+
+            code.interact(local=locals())
+
+
+            print "%s:\t SSH session login to %s FAILED.... retrying in %s s" % (self.__cid(self.id), self.hostname,
+                                                                                 self.SSH_LOGIN_REPEAT_TIMEOUT)
 
             time.sleep(self.SSH_LOGIN_REPEAT_TIMEOUT)
             self.s.close()
             self.s = []
             self.sshConnect(self.hostname, self.port, self.username, self.passwd)
+        return True
 
 
 
@@ -355,6 +378,9 @@ class SshControl (threading.Thread):
             self.s = []
             print "%s:\t disconnected." % (self.__cid(self.id))
         SshControl.sshThreads.remove(self)
+
+    def sshAbort(self):
+        SshControl.sshThreads = []
 
 
     def simCommand(self):
