@@ -44,10 +44,8 @@ will probably have to install the (included) pexpect package first.
 
     $ sshlauncher [-d] [-e] [-s] configfile
 
-Please refer to the included [PDF][PDF] file for detailed instructions on
+Please refer to the included PDF file for detailed instructions on
 setting up the configuration file.
-
-[PDF]: ./test
 
 
 
