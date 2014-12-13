@@ -14,6 +14,8 @@ You should have received a copy of the GNU General Public License along with thi
 
 Simulation and emulation experiments are widely used for investigating new approaches and verifying existing theories in communication networks. SSHLauncher is a tool for performing automated experiments in distributed testbeds such as Emulab or PlanetLab. Using an intuitive configuration file syntax, large sets of complex command sequences can be executed with minimal user interaction. As a result, the repeated execution of experiments and the generation of controlled, documented, and reproducible results is greatly facilitated.
 
+![Typical SSHLauncher experimental setup.](./doc/img/setup_light.pdf)
+
 # Installation:
 
 For a system-wide SSHLauncher installation run
@@ -24,6 +26,7 @@ you will probably require root privileges. However, SSHLauncher can also be exec
 
     $ pip install pexpect
 
+SSHLauncher requires Python version >= 2.6 and has been tested with `pexpect` version 3.3.
 
 # Usage:
 
@@ -37,4 +40,18 @@ you will probably require root privileges. However, SSHLauncher can also be exec
     -s, --simulate  simulates the sshlauncher configuration by replacing
     commands by relevant echos
 
-Please refer to the included PDF file for detailed instructions on setting up the configuration file.
+For each SSH session which should be spawned, the configuration file contains a block specifying the host name, the command to be executed as well as any potential dependencies on the output of other sessions.
+
+    # prepare receiver
+    [receiver]
+    host: nodeA.filab.uni-hannover.de
+    password: xyz123
+    command: iperf -s
+
+    # start sender when receiver is ready
+    [sender_session]
+    host: nodeB.filab.uni-hannover.de
+    command: iperf -c nodeA.filab.uni-hannover.de
+    after: {'receiver':'Server listening'}
+
+Additional parameters may be passed from the shell through environment variables. Please refer to the [technical report](sshlauncher_tr.pdf) for detailed instructions on setting up the configuration file.

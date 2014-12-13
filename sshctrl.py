@@ -207,7 +207,6 @@ class SSHControl (threading.Thread):
             self.ssh_abort();
             return
 
-
     def registerAfter(self, id, afterCommand):
         """register an expect string on this block"""
         self.lock.acquire()
@@ -218,7 +217,6 @@ class SSHControl (threading.Thread):
         finally:
             self.lock.release()
         log_debug(" %s:\t->\t registered \"%s\" on %s" % (color(id), afterCommand, color(self.id)))
-
 
     def checkConfig(self):
         """very rudimentary check for valid section configuration"""
