@@ -20,13 +20,21 @@ For a system-wide SSHLauncher installation run
 
     $ python setup.py install
 
-you will probably require root privileges. However, SSHLauncher can also be executed as a stand alone application from the local directory. Note, that SSHlauncher relies on the excellent [pexpect](https://github.com/pexpect/pexpect) package which you may need to install first (a version is included for convenience).
+you will probably require root privileges. However, SSHLauncher can also be executed as a stand alone application from the local directory. Note, that SSHLauncher relies on the excellent [pexpect](https://github.com/pexpect/pexpect) package which you may need to install first (a version is included for convenience).
 
     $ pip install pexpect
 
 
 # Usage:
 
-    $ sshlauncher [-d] [-e] [-s] configfile
+    $ sshlauncher [options] configfile
+
+    Options:
+    --version       show program's version number and exit
+    -h, --help      show this help message and exit
+    -d, --debug     enable debug mode
+    -e, --escape    enable interpretation of backslash escapes in commands
+    -s, --simulate  simulates the sshlauncher configuration by replacing
+    commands by relevant echos
 
 Please refer to the included PDF file for detailed instructions on setting up the configuration file.
