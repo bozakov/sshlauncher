@@ -134,15 +134,13 @@ for section in config.sections():
 
 sshctrl.SSHControl.ssh_threads = thread_list;
 
-print "-"*80
-print "\n"
 
 
 
 if __name__ == '__main__':
     print "SSHLauncher version %s" % VERSION
     print sys.version
-
+    print "-"*80
 
     # start all threads in thread list
     for ssh_thread in thread_list:

@@ -5,7 +5,7 @@
 #
 #    SSHLauncher is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
-#    the Free Software Foundation, either version 3 of the License, or
+#    the Free Software Foundation, either version 2 of the License, or
 #    (at your option) any later version.
 #
 #    SSHLauncher is distributed in the hope that it will be useful,
@@ -30,7 +30,7 @@ import select
 import logging
 
 
-logging.debug('test!')
+
 DEBUG = False
 # LSD-style debug output
 DEBUG_LABEL = '\033[1;32mDEBUG\033[m:'
@@ -87,7 +87,6 @@ class SSHControl (threading.Thread):
     # how long should we wait (in seconds) for the prompt
     PROMPT_TIMEOUT = 86400      # 24 hours
 
-
     def __init__(self, id, hostname, port, username, passwd, command, after={},
                  sync=[], delay=0):
         """initialize class variables"""
@@ -117,7 +116,6 @@ class SSHControl (threading.Thread):
         self.lockSync = threading.Lock()
 
         self.daemon = True
-
 
     def run(self):
         """thread method"""
@@ -161,7 +159,7 @@ class SSHControl (threading.Thread):
             time.sleep(1)
 
         # then connect
-        if not self.sshConnect(self.hostname, self.port, self.username, self.passwd):
+        if not self.ssh_connect(self.hostname, self.port, self.username, self.passwd):
             return #TODO
 
         # notify all other threads in sync-group
@@ -188,7 +186,7 @@ class SSHControl (threading.Thread):
         if SSHControl.ESCAPE:
             self.command = 'echo -e \' ' + self.BASH_SETUP + self.command + '\' | ' + self.BASH
         else:
-            self.command = 'echo \' ' + self.BASH_SETUP + self.command + '\' | ' + self.BASH
+            self.command = 'echo \' '    + self.BASH_SETUP + self.command + '\' | ' + self.BASH
 
         try:
             # send comand
@@ -201,10 +199,10 @@ class SSHControl (threading.Thread):
             if self.s.prompt(self.PROMPT_TIMEOUT):
                 self.ssh_disconnect()
             else:
-                self.info("did not reach prompt! something went wrong\n")
+                self.info("did not reach the prompt! something went wrong")
                 print self.s.before
                 raise SystemError
-                # if DEBUG : self.s.interact()
+                # if DEBUG : self.s.interact(local=locals())
         except (select.error, IOError, OSError):
             self.ssh_abort();
             return
@@ -224,7 +222,8 @@ class SSHControl (threading.Thread):
 
     def checkConfig(self):
         """very rudimentary check for valid section configuration"""
-
+        if self.terminate_threads: return False
+        
         if self.after:
             # check for circular refences
             for remote_after in [t for t in SSHControl.ssh_threads if (t.getName() in self.after.keys())]:
@@ -261,8 +260,6 @@ class SSHControl (threading.Thread):
             self.lockSync.release()
         log_debug(" %s:\t->\t synchronized with %s" % (color(id), color(self.id)))
 
-
-
     def __expectWait(self):
         """wait until all expect strings matched and remove corresponding entries from
         the threads after: queues.
@@ -286,20 +283,20 @@ class SSHControl (threading.Thread):
                     self.lock.release()
 
         except pexpect.EOF:
-            print "%s:\t EOF!" % (color(self.id),)
+            self.info("EOF!")
         except pexpect.TIMEOUT, e:
-            print "%s:\t pexpect timed-out waiting for: %s" % (color(self.id), self.afterList.keys())
+            self.info("timed-out waiting for: %s" % (self.afterList.keys()))
             log_debug(str(e))
 
     def __str__(self):
         return color(self.id)
 
     def info(self, text):
-        print "%s: \t%s" % (color(self.id), text )
+        print "%s: \t%s" % (color(self.id), text)
 
     def notifyAfter(self, id, after):
         """notify a thread that the expect string has been matched"""
-        self.info("matched \"%s\" from %s" % (after, color(id) ))
+        self.info("matched \"%s\" from %s" % (after, color(id)))
         self.lock.acquire()
         try:
             del self.after[id]
@@ -317,20 +314,18 @@ class SSHControl (threading.Thread):
             self.lockSync.release()
 
     def getInfo(self):
-        """print some info on the conneciton"""
+        """Print some info on the conneciton"""
         print '\nthread: %s\talive: %s' % (self.getName(), self.isAlive())
         if self.s:
             print 'ssh connection is alive :%s' % (self.s.isalive(),)
             print self.s.PROMPT
 
-    def sshConnect(self, hostname, port, username, passwd):
+    def ssh_connect(self, hostname, port, username, passwd):
+        """Connect and return True if successfull. Retry if connection fails."""
         sshport = int(port)
         self.info("connecting to %s:%s ... " % (self.hostname, self.port))
         if not self.s:
             self.s = pxssh.pxssh()
-
-            #code.interact(local=locals())
-
         try:
             # p.hollands suggestion: original_prompt=r"][#$]|~[#$]|bash.*?[#$]|[#$] |.*@.*:.*>"
             # BROKEN original_prompt=r"[#$]|$"
@@ -349,7 +344,7 @@ class SSHControl (threading.Thread):
                 return False
 
             self.connected = True
-            print "%s:\t\t ...connected to %s " % (color(self.id), self.hostname)
+            self.info("connected")
 
             if DEBUG:
                     log_debug("\t writing log file to %s.log" % (self.id))
@@ -358,9 +353,8 @@ class SSHControl (threading.Thread):
 
         except pxssh.ExceptionPxssh as e:
             if e.message=='password refused':
-                print color(self.id) + ':\t' + str(e)
-                print 'NOT continuing!' # TODO
-                self.ssh_abort(e)
+                self.info('invalid password! exiting...')
+                self.ssh_abort(e )
                 return False
 
             log_debug(str(e))
@@ -370,7 +364,7 @@ class SSHControl (threading.Thread):
 
             time.sleep(self.SSH_LOGIN_REPEAT_TIMEOUT)
             self.s.close()
-            self.sshConnect(self.hostname, self.port, self.username, self.passwd)
+            self.ssh_connect(self.hostname, self.port, self.username, self.passwd)
         except (select.error,IOError,OSError) as e:
             self.ssh_abort(e)
             return False
@@ -390,11 +384,9 @@ class SSHControl (threading.Thread):
                 pass
             #self.s.kill(9)
             self.s = None
-            self.info("disconnected.")
+            self.info("disconnected")
         self.connected = False
         self.remove()
-
-
 
     def simCommand(self):
         result = ""
