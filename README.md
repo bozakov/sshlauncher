@@ -14,7 +14,7 @@ You should have received a copy of the GNU General Public License along with thi
 
 Simulation and emulation experiments are widely used for investigating new approaches and verifying existing theories in communication networks. SSHLauncher is a tool for performing automated experiments in distributed testbeds such as Emulab or PlanetLab. Using an intuitive configuration file syntax, large sets of complex command sequences can be executed with minimal user interaction. As a result, the repeated execution of experiments and the generation of controlled, documented, and reproducible results is greatly facilitated.
 
-![Typical SSHLauncher experimental setup.](./doc/img/setup_light.pdf)
+![Typical SSHLauncher experimental setup.](./doc/img/setup_light.svg)
 
 # Installation:
 
