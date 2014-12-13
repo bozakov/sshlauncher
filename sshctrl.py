@@ -131,19 +131,20 @@ class SSHControl (threading.Thread):
         if self.after:
             for t in SSHControl.ssh_threads:
                 for key in self.after.keys():
-                    if t.getName() == str(key):
-                        t.registerAfter(self.id, self.after[key])
+                    if t.name == str(key):
+                        t.register_after(self.id, self.after[key])
         self.registered_after = True
 
         # wait until all threads have registered
-        while [t for t in SSHControl.ssh_threads if not t.registered_after]:
+        #while [t for t in SSHControl.ssh_threads if not t.registered_after]: % FIXME
+        while not all([t.registered_after for t in SSHControl.ssh_threads]):
             time.sleep(1)
 
         # register sync expect string on thread id specified by sync
         if self.sync:
             for t in SSHControl.ssh_threads:
                 for key in self.sync:
-                    if t.getName() == str(key):
+                    if t.name == str(key):
                         t.register_sync(self.id)
         self.sync_registered = True
 
@@ -165,7 +166,7 @@ class SSHControl (threading.Thread):
         # notify all other threads in sync-group
         for tid in self.syncList:
             for t in SSHControl.ssh_threads:
-                if t.getName() == tid:
+                if t.name == tid:
                     t.notifySync(self.id)
 
         # wait until all sync-group threads have been connected
@@ -184,9 +185,9 @@ class SSHControl (threading.Thread):
         # self.command = self.BASH_SETUP + self.command
         # spawn a new bash session on remote host and pipe command string to it
         if SSHControl.ESCAPE:
-            self.command = 'echo -e \' ' + self.BASH_SETUP + self.command + '\' | ' + self.BASH
+            self.command = 'echo -e \'' + self.BASH_SETUP + self.command + '\' | ' + self.BASH
         else:
-            self.command = 'echo \' '    + self.BASH_SETUP + self.command + '\' | ' + self.BASH
+            self.command = 'echo \''    + self.BASH_SETUP + self.command + '\' | ' + self.BASH
 
         try:
             # send comand
@@ -207,8 +208,8 @@ class SSHControl (threading.Thread):
             self.ssh_abort();
             return
 
-    def registerAfter(self, id, afterCommand):
-        """register an expect string on this block"""
+    def register_after(self, id, afterCommand):
+        """Register an expect string on this block"""
         self.lock.acquire()
         try:
             self.afterList[afterCommand].append(id)
@@ -216,15 +217,15 @@ class SSHControl (threading.Thread):
             self.afterList[afterCommand] = [id]
         finally:
             self.lock.release()
-        log_debug(" %s:\t->\t registered \"%s\" on %s" % (color(id), afterCommand, color(self.id)))
+        log_debug(" %s:\t registered \"%s\" on %s" % (color(id), afterCommand, color(self.id)))
 
     def checkConfig(self):
-        """very rudimentary check for valid section configuration"""
+        """Very rudimentary check for valid section configuration"""
         if self.terminate_threads: return False
         
         if self.after:
             # check for circular refences
-            for remote_after in [t for t in SSHControl.ssh_threads if (t.getName() in self.after.keys())]:
+            for remote_after in [t for t in SSHControl.ssh_threads if (t.name in self.after.keys())]:
                 if (remote_after.after and (self.id in remote_after.after.keys())):
                     self.info("***** ERROR: cirular references %s <-> %s? *****" \
                         % (color(self.id), color(self.id), color(remote_after.id)))
@@ -235,7 +236,7 @@ class SSHControl (threading.Thread):
                 if not a in [t.id for t in SSHControl.ssh_threads]:
                     print "%s:\t***** ERROR: '%s' is not a valid section id in AFTER *****" % (color(self.id), a)
                     raise ConfigError
-                # print [t.getName() for t in SSHControl.ssh_threads]
+                # print [t.name for t in SSHControl.ssh_threads]
 
             # check for invalid section ids in SYNC
             if not (self.sync is None):
@@ -248,7 +249,7 @@ class SSHControl (threading.Thread):
         return True
 
     def register_sync(self, id):
-        """register an expect string on this block"""
+        """Register an expect string on this block"""
         self.lockSync.acquire()
         try:
             self.syncList.append(id)
@@ -259,7 +260,7 @@ class SSHControl (threading.Thread):
         log_debug(" %s:\t->\t synchronized with %s" % (color(id), color(self.id)))
 
     def __expectWait(self):
-        """wait until all expect strings matched and remove corresponding entries from
+        """Wait until all expect strings matched and remove corresponding entries from
         the threads after: queues.
 
         """
