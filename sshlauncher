@@ -31,7 +31,7 @@ from optparse import OptionParser
 import sshctrl
 
 
-VERSION="2.0.3"
+VERSION="2.1"
 # set empty default password
 DEFAULTPASSWORD=''
 # set default ssh port 22
@@ -94,7 +94,7 @@ if not config.read(configfile):
     raise SystemExit
 
 # create empty thread list
-threadList=[]
+thread_list=[]
 
 # parse config file sections
 for section in config.sections():    
@@ -124,7 +124,7 @@ for section in config.sections():
     hosts = config.get(section, 'host').split()
     try:
         for host in hosts:
-            threadList.append(sshctrl.SSHControl(section, host, port,
+            thread_list.append(sshctrl.SSHControl(section, host, port,
                                                  config.get(section, 'user'), pwd,
                                                  config.get(section, 'command'), after, sync,))
     except ConfigParser.InterpolationMissingOptionError as e:
@@ -132,25 +132,28 @@ for section in config.sections():
         print e
         raise SystemExit
 
-sshctrl.SSHControl.ssh_threads = threadList;
+sshctrl.SSHControl.ssh_threads = thread_list;
 
 print "-"*80
 print "\n"
 
-# start all threads in thread list
-for sshThread in threadList:
-        sshThread.start()
-
-while threadList:
-    try:
-        time.sleep(1)
-    except KeyboardInterrupt: 
-        for sshThread in threadList:
-            sshThread.sshDisconnect()
-        print "\n\n Terminated!\n"
-        raise SystemExit
 
 
 if __name__ == '__main__':
     print "SSHLauncher version %s" % VERSION
     print sys.version
+
+
+    # start all threads in thread list
+    for ssh_thread in thread_list:
+        ssh_thread.start()
+
+    while thread_list and sshctrl.SSHControl.terminate_threads is False:
+        try:
+            time.sleep(1)
+        except KeyboardInterrupt:
+            print "\n\n Terminated!\n"
+            break
+
+    for sshThread in thread_list:
+        sshThread.ssh_disconnect()
