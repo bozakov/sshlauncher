@@ -23,14 +23,12 @@ except ImportError:
     print "Could not find pexpect module. You can install it using:"
     print "    pip install pexpect"
     raise SystemError
-import code
-import logging
 import select
 import threading
 import time
 import os
 
-if float(pexpect.__version__)<3.3:
+if float(pexpect.__version__) < 3.3:
     print 'The installed version of pexpect is not supported.'
     print 'Please install pexect>=3.3.'
     exit(3)
@@ -53,16 +51,16 @@ def log_debug(msg, str_prefix='', level=1):
         print str_prefix + msg + '\t(%s)' % DEBUG_LABEL
 
 
-def color(id_str, ascii_fg=31, ascii_bg=47, bold=22):
-    """print section id in color"""
+def color(id_str, ascii_fg=31, ascii_bg=47, bold=1):
+    """Print section [id] in color"""
     # TODO check if the terminal supports it
     # see also: http://pypi.python.org/pypi/colorama
     h = hash(id_str)
     ascii_fg = 30 + (h & 7)
-    #ascii_bg = 40 + (-h & 7)
+    # ascii_bg = 40 + (-h & 7)
     bold = 1
     if COLOR_TERM:
-        return "\033[%dm\033[%dm\033[%dm[%s]\033[0m" % (ascii_bg, bold, ascii_fg, id_str)
+        return "\033[%d;%d;%dm[%s]\033[0m" % (ascii_bg, bold, ascii_fg, id_str)
     else:
         return "[%s]" % id_str
 
@@ -260,21 +258,21 @@ class SSHControl (threading.Thread):
             # check for circular refences
             for remote_after in [t for t in SSHControl.ssh_threads if (t.name in self.after.keys())]:
                 if (remote_after.after and (self.id in remote_after.after.keys())):
-                    self.error("***** ERROR: cirular references %s <-> %s? *****" \
+                    self.error("cirular references %s <-> %s?" \
                         % (color(self.id), color(self.id), color(remote_after.id)))
                     raise ConfigError
 
             # check for invalid section ids in AFTER
             for a in self.after:
                 if a not in [t.id for t in SSHControl.ssh_threads]:
-                    self.error( "***** ERROR: '%s' is not a valid section id in AFTER *****" % a)
+                    self.error("'%s' is not a valid section id in AFTER" % a)
                     raise ConfigError
 
             # check for invalid section ids in SYNC
             if not (self.sync is None):
                 for a in self.sync:
                     if a not in [t.id for t in SSHControl.ssh_threads]:
-                        self.error("***** ERROR: '%s' is not a valid section id in SYNC *****" % a)
+                        self.error("'%s' is not a valid section id in SYNC" % a)
                         self.sync.remove(a)
 
         self.info("configuration seems ok")
