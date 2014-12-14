@@ -427,7 +427,7 @@ class SSHControl (threading.Thread):
             self.ssh_abort(e)
             return False
         except (pexpect.EOF) as e:
-            self.error("could not connect to %s. check hostname" % txt_bold(self.hostname))
+            self.error("could not connect to %s. check hostname" % ansi_bold(self.hostname))
             self.ssh_abort(e)
             return False
         return True

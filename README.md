@@ -1,6 +1,6 @@
 SSHLauncher facilitates the execution of distributed, reproducible,
 SSH-based experiments.
-Copyright (c) 2008 Zdravko Bozakov
+Copyright (c) 2008 Zdravko Bozakov, 
 
 # License:
 
@@ -8,7 +8,7 @@ This program is free software; you can redistribute it and/or modify it under th
 
 This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License along with this program; If not, see <http://www. gnu. org/licenses/>.
+You should have received a copy of the GNU General Public License along with this program; If not, see <http://www.gnu.org/licenses/>.
 
 # Summary:
 
@@ -16,7 +16,7 @@ Simulation and emulation experiments are widely used for investigating new appro
 
 In contrast to tools such as `parallel-ssh`, SSHLauncher allows users to specify the order in which ssh sessions are spawned by defining dependencies based on the output of the executed commands.
 
-![Typical SSHLauncher experimental setup.](http://cdn.rawgit.com/bozakov/sshlauncher/testing/doc/img/setup_light.svg)
+![Typical SSHLauncher experimental setup.](http://cdn.rawgit.com/bozakov/sshlauncher/master/doc/img/setup_light.svg)
 
 # Installation:
 
@@ -30,7 +30,7 @@ you will probably require root privileges. However, SSHLauncher can also be exec
 
 SSHLauncher requires Python version >= 2.6 and has been tested with `pexpect` version 3.3.
 
-```
+```shell
 Usage:
 
     $ sshlauncher [options] configfile
