@@ -402,13 +402,15 @@ class SSHControl (threading.Thread):
             self.info("connected")
 
             if DEBUG:
-                    self.debug("writing log file to %s.log" %  self.id)
+                    self.debug("writing log file to %s" %
+                               ansi_bold(self.id+'.log'))
                     fout = file('%s.log' % (self.id), 'w')
                     self.s.logfile = fout
 
         except pxssh.ExceptionPxssh as e:
             if e.message == 'password refused':
-                self.error('invalid password! exiting...')
+                self.error('invalid password for %s@%s! exiting...' %
+                           (self.username, self.hostname))
                 self.ssh_abort(e)
                 return False
 
