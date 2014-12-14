@@ -71,8 +71,7 @@ def txt_bold(msg):
 
 class ConfigError(Exception):
     def __init__(self):
-        print "terminating thread!"
-        #thread.exit()
+        pass
 
 
 class SSHControl (threading.Thread):
@@ -84,17 +83,17 @@ class SSHControl (threading.Thread):
     s = None
     # strore all ssh threads
     ssh_threads = []
+    # kill all threads if this is set to True
     terminate_threads = False
 
-    # pseudo static vars
     ESCAPE = False
     SIMULATE = False
 
     # start a login (l) or interactive(i) bash shell when issuing remote command
     # TODO this should be an option
-    BASH = '/bin/bash -ls'
+    SHELL = '/bin/bash -ls'
     # commands which should always executed before the command string
-    BASH_SETUP = 'unset HISTFILE; '
+    SHELL_SETUP = 'unset HISTFILE; '
     # how long should we wait (in seconds) before assuming the ssh connection
     # cannot be established
     SSH_LOGIN_TIMEOUT = 15
@@ -173,7 +172,12 @@ class SSHControl (threading.Thread):
             time.sleep(LOOP_DELAY)
 
         # now check the configuration
-        self._check_config()
+        try:
+            self._check_config()
+        except ConfigError:
+            self.ssh_abort()
+            return
+            
         # wait to see if all configurations are ok
         while any([not t.config_ok for t in SSHControl.ssh_threads]):
             time.sleep(LOOP_DELAY)
@@ -212,12 +216,12 @@ class SSHControl (threading.Thread):
 
         # execute command string
         self.info("executing: \033[1;34m%s\033[m " % (self.command))
-        # self.command = self.BASH_SETUP + self.command
+        # self.command = self.SHELL_SETUP + self.command
         # spawn a new bash session on remote host and pipe command string to it
         if SSHControl.ESCAPE:
-            self.command = 'echo -e \'' + self.BASH_SETUP + self.command + '\' | ' + self.BASH
+            self.command = 'echo -e \'' + self.SHELL_SETUP + self.command + '\' | ' + self.SHELL
         else:
-            self.command = 'echo \''    + self.BASH_SETUP + self.command + '\' | ' + self.BASH
+            self.command = 'echo \''    + self.SHELL_SETUP + self.command + '\' | ' + self.SHELL
 
         try:
             # send comand
@@ -343,7 +347,7 @@ class SSHControl (threading.Thread):
         return msg
 
     def notifyAfter(self, id, after):
-        """notify a thread that the expect string has been matched"""
+        """Notify a thread that the expect string has been matched"""
         self.info("matched \"%s\" from %s" % (after, color(id)))
         self.lock.acquire()
         try:
@@ -352,7 +356,7 @@ class SSHControl (threading.Thread):
             self.lock.release()
 
     def notifySync(self, id):
-        """Notify a thread that to start in sync mode"""
+        """Notify a thread to start in sync mode"""
         self.info("SYNC: notified from %s" % (color(id)))
         self.lockSync.acquire()
         try:
@@ -371,11 +375,12 @@ class SSHControl (threading.Thread):
             # p.hollands suggestion: original_prompt=r"][#$]|~[#$]|bash.*?[#$]|[#$] |.*@.*:.*>"
             # BROKEN original_prompt=r"[#$]|$"
             self.s.login(hostname, username, passwd,
-                            login_timeout=self.SSH_LOGIN_TIMEOUT,
-                            port=sshport, auto_prompt_reset=True)
+                         login_timeout=self.SSH_LOGIN_TIMEOUT,
+                         port=sshport, auto_prompt_reset=True)
             self.s.set_unique_prompt
 
-            # TODO: disabling echo currently only works reliably under bash, so also trying this way
+            # TODO: disabling echo currently only works reliably under bash, so
+            # also trying this way
             self.s.setecho(False)
             self.s.sendline('stty -echo;')
             if not self.s.prompt(self.PROMPT_TIMEOUT):
