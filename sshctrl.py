@@ -30,6 +30,11 @@ import threading
 import time
 import os
 
+if float(pexpect.__version__)<3.3:
+    print 'The installed version of pexpect is not supported.'
+    print 'Please install pexect>=3.3.'
+    exit(3)
+
 COLOR_TERM = False
 if os.environ.get("TERM"):
     COLOR_TERM = True
