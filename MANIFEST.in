@@ -1,3 +1,2 @@
 recursive-include examples *.config
-recursive-include pexpect-2.3 *
 include sshlauncher_tr.pdf
