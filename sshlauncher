@@ -25,6 +25,7 @@ import re
 import string
 import sys
 import time
+import threading
 
 from optparse import OptionParser
 
@@ -132,7 +133,9 @@ for section in config.sections():
         raise SystemExit
 
 # store list of session threads
-sshctrl.SSHControl.ssh_threads = session_list;
+sshctrl.SSHControl.ssh_threads = session_list
+sshctrl.SSHControl.thread_lock = threading.Lock()
+
 
 
 

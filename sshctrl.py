@@ -86,6 +86,7 @@ class SSHControl (threading.Thread):
     # kill all threads if this is set to True
     terminate_threads = False
 
+    thread_lock = None
     ESCAPE = False
     SIMULATE = False
 
@@ -245,6 +246,8 @@ class SSHControl (threading.Thread):
 
     def register_after(self, id, afterCommand):
         """Register an expect string on this block"""
+        # FIXME I don't think we really need locks here. appending to a list is
+        # an atomic operation
         self.lock.acquire()
         try:
             self.afterList[afterCommand].append(id)
@@ -326,25 +329,28 @@ class SSHControl (threading.Thread):
         return color(self.id)
 
     def info(self, msg, stdout=True):
-        id_label = color(self.id).ljust(SSHControl.ID_STR_LEN)
-        msg = "%s   %s" % (id_label, msg)
-        if stdout:
-            print msg
-        return msg
+        with SSHControl.thread_lock:
+            id_label = color(self.id).ljust(SSHControl.ID_STR_LEN)
+            msg = "%s   %s" % (id_label, msg)
+            if stdout:
+                print msg
+            return msg
 
     def debug(self, msg, stdout=True):
         if not DEBUG: return
-        id_label = color(self.id).ljust(SSHControl.ID_STR_LEN)
-        msg = "%s   %s\t(%s)" % (id_label, msg, DEBUG_LABEL)
-        if stdout:
-            print msg
+        with SSHControl.thread_lock:
+            id_label = color(self.id).ljust(SSHControl.ID_STR_LEN)
+            msg = "%s   %s\t(%s)" % (id_label, msg, DEBUG_LABEL)
+            if stdout:
+                print msg
 
     def error(self, msg, stdout=True):
-        id_label = color(self.id).ljust(SSHControl.ID_STR_LEN)
-        msg = "%s   %s" % (id_label, '\033[1;31m'+msg+'\033[0m')
-        if stdout:
-            print msg
-        return msg
+        with SSHControl.thread_lock:
+            id_label = color(self.id).ljust(SSHControl.ID_STR_LEN)
+            msg = "%s   %s" % (id_label, '\033[1;31m'+msg+'\033[0m')
+            if stdout:
+                print msg
+            return msg
 
     def notifyAfter(self, id, after):
         """Notify a thread that the expect string has been matched"""
