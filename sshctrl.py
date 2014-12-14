@@ -23,30 +23,47 @@ except ImportError:
     print "Could not find pexpect module. You can install it using:"
     print "    pip install pexpect"
     raise SystemError
+import code
+import logging
+import select
 import threading
 import time
-import code
-import select
-import logging
+import os
+
+COLOR_TERM = False
+if os.environ.get("TERM"):
+    COLOR_TERM = True
 
 
+LOOP_DELAY = .1
+WAIT_NOTIFICATION_DELAY = 60  # seconds
 
 DEBUG = False
 # LSD-style debug output
-DEBUG_LABEL = '\033[1;32mDEBUG\033[m:'
-ERROR_LABEL = '\033[1;32mERROR\033[m:'
+DEBUG_LABEL = '\033[1;32mDEBUG\033[m'
 
-def log_debug(text, level=1):
+
+def log_debug(msg, str_prefix='', level=1):
     if DEBUG:
-        print DEBUG_LABEL + text
+        print str_prefix + msg + '\t(%s)' % DEBUG_LABEL
+
 
 def color(id_str, ascii_fg=31, ascii_bg=47, bold=22):
     """print section id in color"""
+    # TODO check if the terminal supports it
+    # see also: http://pypi.python.org/pypi/colorama
     h = hash(id_str)
     ascii_fg = 30 + (h & 7)
     #ascii_bg = 40 + (-h & 7)
     bold = 1
-    return "\033[%dm\033[%dm\033[%dm[%s]\033[0m" % (ascii_bg, bold, ascii_fg, id_str)
+    if COLOR_TERM:
+        return "\033[%dm\033[%dm\033[%dm[%s]\033[0m" % (ascii_bg, bold, ascii_fg, id_str)
+    else:
+        return "[%s]" % id_str
+
+
+def txt_bold(msg):
+    return msg
 
 
 class ConfigError(Exception):
@@ -59,7 +76,7 @@ class SSHControl (threading.Thread):
     """Starts a thread which establishes an SSH connection and executes a command.
 
     """
-
+    ID_STR_LEN = 0
     # pxssh instance
     s = None
     # strore all ssh threads
@@ -95,12 +112,13 @@ class SSHControl (threading.Thread):
         self.afterList = {}
         self.syncList = []
         self.id = id
+        SSHControl.ID_STR_LEN = max(len(color(id)), SSHControl.ID_STR_LEN)
 
         self.connected = False
         self.registered_after = False
-        self.sync_registered = False
+        self.registered_sync = False
         self.syncNotified = False
-        self.forcequit = False
+        self.config_ok = False
         self.ready = False
 
         self.hostname = hostname
@@ -125,7 +143,7 @@ class SSHControl (threading.Thread):
 
         # wait until all threads are alive
         while [t for t in SSHControl.ssh_threads if not t.ready]:
-            time.sleep(1)
+            time.sleep(LOOP_DELAY)
 
         # register own expect string on thread id specified by after
         if self.after:
@@ -136,9 +154,8 @@ class SSHControl (threading.Thread):
         self.registered_after = True
 
         # wait until all threads have registered
-        #while [t for t in SSHControl.ssh_threads if not t.registered_after]: % FIXME
-        while not all([t.registered_after for t in SSHControl.ssh_threads]):
-            time.sleep(1)
+        while any([not t.registered_after for t in SSHControl.ssh_threads]):
+            time.sleep(LOOP_DELAY)
 
         # register sync expect string on thread id specified by sync
         if self.sync:
@@ -146,22 +163,32 @@ class SSHControl (threading.Thread):
                 for key in self.sync:
                     if t.name == str(key):
                         t.register_sync(self.id)
-        self.sync_registered = True
+        self.registered_sync = True
 
         # wait until all threads are synchonized
-        while [t for t in SSHControl.ssh_threads if not t.sync_registered]:
-            time.sleep(1)
+        while any([not t.registered_sync for t in SSHControl.ssh_threads]):
+            time.sleep(LOOP_DELAY)
 
         # now check the configuration
-        self.checkConfig()
+        self._check_config()
+        # wait to see if all configurations are ok
+        while any([not t.config_ok for t in SSHControl.ssh_threads]):
+            time.sleep(LOOP_DELAY)
 
-        # wait until all expect strings registered by current thread have been matched
+        # wait until all expect strings registered by current session have been
+        # matched
+        timer = time.time()
         while (self.after and not self.syncNotified):
-            time.sleep(1)
+            time.sleep(LOOP_DELAY)
+            # periodically tell the user what's happening
+            if time.time()-timer > WAIT_NOTIFICATION_DELAY:
+                timer = time.time()
+                self.info('waiting for %s ' % ' and '.join(['"%s" from ' %v + color(k) for k, v in self.after.iteritems()]))
 
         # then connect
-        if not self.ssh_connect(self.hostname, self.port, self.username, self.passwd):
-            return #TODO
+        if not self.ssh_connect(self.hostname, self.port,
+                                self.username, self.passwd):
+            return # TODO
 
         # notify all other threads in sync-group
         for tid in self.syncList:
@@ -171,10 +198,10 @@ class SSHControl (threading.Thread):
 
         # wait until all sync-group threads have been connected
         while self.sync:
-            time.sleep(1)
+            time.sleep(LOOP_DELAY)
         # keep execution order
         while (self.after):
-            time.sleep(1)
+            time.sleep(LOOP_DELAY)
 
         # if simulate only
         if SSHControl.SIMULATE:
@@ -196,16 +223,17 @@ class SSHControl (threading.Thread):
             # start loop to match expect strings and notify other threads
             self.__expectWait()
 
-            # wait for section command to finish (i.e. reach the prompt) and disconnect
+            # wait for section command to finish (i.e. reach the prompt) and
+            # disconnect
             if self.s.prompt(self.PROMPT_TIMEOUT):
                 self.ssh_disconnect()
             else:
-                self.info("did not reach the prompt! something went wrong")
+                self.error("did not reach the prompt! something went wrong")
                 print self.s.before
                 raise SystemError
                 # if DEBUG : self.s.interact(local=locals())
         except (select.error, IOError, OSError):
-            self.ssh_abort();
+            self.ssh_abort()
             return
 
     def register_after(self, id, afterCommand):
@@ -217,9 +245,9 @@ class SSHControl (threading.Thread):
             self.afterList[afterCommand] = [id]
         finally:
             self.lock.release()
-        log_debug(" %s:\t registered \"%s\" on %s" % (color(id), afterCommand, color(self.id)))
+        self.debug('%s registered "%s"' % (color(id), afterCommand))
 
-    def checkConfig(self):
+    def _check_config(self):
         """Very rudimentary check for valid section configuration"""
         if self.terminate_threads: return False
         
@@ -227,25 +255,25 @@ class SSHControl (threading.Thread):
             # check for circular refences
             for remote_after in [t for t in SSHControl.ssh_threads if (t.name in self.after.keys())]:
                 if (remote_after.after and (self.id in remote_after.after.keys())):
-                    self.info("***** ERROR: cirular references %s <-> %s? *****" \
+                    self.error("***** ERROR: cirular references %s <-> %s? *****" \
                         % (color(self.id), color(self.id), color(remote_after.id)))
                     raise ConfigError
 
             # check for invalid section ids in AFTER
             for a in self.after:
-                if not a in [t.id for t in SSHControl.ssh_threads]:
-                    print "%s:\t***** ERROR: '%s' is not a valid section id in AFTER *****" % (color(self.id), a)
+                if a not in [t.id for t in SSHControl.ssh_threads]:
+                    self.error( "***** ERROR: '%s' is not a valid section id in AFTER *****" % a)
                     raise ConfigError
-                # print [t.name for t in SSHControl.ssh_threads]
 
             # check for invalid section ids in SYNC
             if not (self.sync is None):
                 for a in self.sync:
-                    if not a in [t.id for t in SSHControl.ssh_threads]:
-                        print "%s:\t***** ERROR: '%s' is not a valid section id in SYNC *****" % (color(self.id), a)
+                    if a not in [t.id for t in SSHControl.ssh_threads]:
+                        self.error("***** ERROR: '%s' is not a valid section id in SYNC *****" % a)
                         self.sync.remove(a)
 
         self.info("configuration seems ok")
+        self.config_ok = True
         return True
 
     def register_sync(self, id):
@@ -268,7 +296,7 @@ class SSHControl (threading.Thread):
             while self.afterList.keys():
                 res = self.s.expect(self.afterList.keys(), self.PEXPECT_TIMEOUT)
                 after = self.afterList.keys()[res]
-                log_debug(" %s:\t \"%s\" matched..." % (color(self.id), after))
+                self.debug('"%s" matched...' % after)
 
                 for tid in self.afterList[after]:
                     for t in SSHControl.ssh_threads:
@@ -285,13 +313,31 @@ class SSHControl (threading.Thread):
             self.info("EOF!")
         except pexpect.TIMEOUT, e:
             self.info("timed-out waiting for: %s" % (self.afterList.keys()))
-            log_debug(str(e))
+            self.debug(str(e))
 
     def __str__(self):
         return color(self.id)
 
-    def info(self, text):
-        print "%s: \t%s" % (color(self.id), text)
+    def info(self, msg, stdout=True):
+        id_label = color(self.id).ljust(SSHControl.ID_STR_LEN)
+        msg = "%s   %s" % (id_label, msg)
+        if stdout:
+            print msg
+        return msg
+
+    def debug(self, msg, stdout=True):
+        if not DEBUG: return
+        id_label = color(self.id).ljust(SSHControl.ID_STR_LEN)
+        msg = "%s   %s\t(%s)" % (id_label, msg, DEBUG_LABEL)
+        if stdout:
+            print msg
+
+    def error(self, msg, stdout=True):
+        id_label = color(self.id).ljust(SSHControl.ID_STR_LEN)
+        msg = "%s   %s" % (id_label, '\033[1;31m'+msg+'\033[0m')
+        if stdout:
+            print msg
+        return msg
 
     def notifyAfter(self, id, after):
         """notify a thread that the expect string has been matched"""
@@ -303,7 +349,7 @@ class SSHControl (threading.Thread):
             self.lock.release()
 
     def notifySync(self, id):
-        """notify a thread that to start in sync mode"""
+        """Notify a thread that to start in sync mode"""
         self.info("SYNC: notified from %s" % (color(id)))
         self.lockSync.acquire()
         try:
@@ -311,13 +357,6 @@ class SSHControl (threading.Thread):
             self.syncNotified = True
         finally:
             self.lockSync.release()
-
-    def getInfo(self):
-        """Print some info on the conneciton"""
-        print '\nthread: %s\talive: %s' % (self.getName(), self.isAlive())
-        if self.s:
-            print 'ssh connection is alive :%s' % (self.s.isalive(),)
-            print self.s.PROMPT
 
     def ssh_connect(self, hostname, port, username, passwd):
         """Connect and return True if successfull. Retry if connection fails."""
@@ -346,25 +385,30 @@ class SSHControl (threading.Thread):
             self.info("connected")
 
             if DEBUG:
-                    log_debug("\t writing log file to %s.log" % (self.id))
+                    self.debug("writing log file to %s.log" %  self.id)
                     fout = file('%s.log' % (self.id), 'w')
                     self.s.logfile = fout
 
         except pxssh.ExceptionPxssh as e:
-            if e.message=='password refused':
-                self.info('invalid password! exiting...')
-                self.ssh_abort(e )
+            if e.message == 'password refused':
+                self.error('invalid password! exiting...')
+                self.ssh_abort(e)
                 return False
 
-            log_debug(str(e))
+            self.debug(str(e))
 
-            self.info("SSH session login to %s FAILED.... retrying in %s s" % (self.hostname,
-                                                                                 self.SSH_LOGIN_REPEAT_TIMEOUT))
+            self.info("SSH session login to %s FAILED... retrying in %s s" % (self.hostname,
+                                                                              self.SSH_LOGIN_REPEAT_TIMEOUT))
 
             time.sleep(self.SSH_LOGIN_REPEAT_TIMEOUT)
             self.s.close()
-            self.ssh_connect(self.hostname, self.port, self.username, self.passwd)
+            self.ssh_connect(self.hostname, self.port,
+                             self.username, self.passwd)
         except (select.error,IOError,OSError) as e:
+            self.ssh_abort(e)
+            return False
+        except (pexpect.EOF) as e:
+            self.error("could not connect to %s. check hostname" % txt_bold(self.hostname))
             self.ssh_abort(e)
             return False
         return True
@@ -381,13 +425,13 @@ class SSHControl (threading.Thread):
                 self.s.close()
             except OSError:
                 pass
-            #self.s.kill(9)
             self.s = None
             self.info("disconnected")
         self.connected = False
         self.remove()
 
     def simCommand(self):
+        """TODO @CK"""
         result = ""
         for t in SSHControl.ssh_threads:
             if not (t.after is None):

@@ -42,16 +42,17 @@ SSHLauncher requires Python version >= 2.6 and has been tested with `pexpect` ve
 
 For each SSH session which should be spawned, the configuration file contains a block specifying the host name, the command to be executed as well as any potential dependencies on the output of other sessions.
 
-    # prepare receiver
-    [receiver]
-    host: nodeA.filab.uni-hannover.de
-    password: xyz123
-    command: iperf -s
+```INI
+# prepare receiver
+[receiver]
+host: nodeA.filab.uni-hannover.de
+password: xyz123
+command: iperf -s
 
-    # start sender when receiver is ready
-    [sender_session]
-    host: nodeB.filab.uni-hannover.de
-    command: iperf -c nodeA.filab.uni-hannover.de
-    after: {'receiver':'Server listening'}
-
+# start sender when receiver is ready
+[sender_session]
+host: nodeB.filab.uni-hannover.de
+command: iperf -c nodeA.filab.uni-hannover.de
+after: {'receiver':'Server listening'}
+```
 Additional parameters may be passed from the shell through environment variables. Please refer to the [technical report](sshlauncher_tr.pdf) for detailed instructions on setting up the configuration file.
