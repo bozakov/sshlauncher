@@ -119,7 +119,6 @@ class SSHControl (threading.Thread):
         self.registered_sync = False
         self.syncNotified = False
         self.config_ok = False
-        self.ready = False
 
         self.hostname = hostname
         self.username = username
@@ -139,10 +138,9 @@ class SSHControl (threading.Thread):
         """thread method"""
         self.name = self.id
         time.sleep(self.delay)
-        self.ready = True
 
-        # wait until all threads are alive
-        while [t for t in SSHControl.ssh_threads if not t.ready]:
+        # wait until all threads have been started
+        while not all([t.is_alive() for t in SSHControl.ssh_threads]):
             time.sleep(LOOP_DELAY)
 
         # register own expect string on thread id specified by after
@@ -175,7 +173,7 @@ class SSHControl (threading.Thread):
         except ConfigError:
             self.ssh_abort()
             return
-            
+
         # wait to see if all configurations are ok
         while any([not t.config_ok for t in SSHControl.ssh_threads]):
             time.sleep(LOOP_DELAY)
@@ -193,7 +191,8 @@ class SSHControl (threading.Thread):
         # then connect
         if not self.ssh_connect(self.hostname, self.port,
                                 self.username, self.passwd):
-            return # TODO
+            self.ssh_abort()
+            return
 
         # notify all other threads in sync-group
         for tid in self.syncList:
@@ -214,8 +213,8 @@ class SSHControl (threading.Thread):
 
         # execute command string
         self.info("executing: \033[1;34m%s\033[m " % (self.command))
-        # self.command = self.SHELL_SETUP + self.command
-        # spawn a new bash session on remote host and pipe command string to it
+        # spawn a new shell session on remote host and pipe command
+        # TODO currently we assume that bash is installed
         if SSHControl.ESCAPE:
             self.command = 'echo -e \'' + self.SHELL_SETUP + self.command + '\' | ' + self.SHELL
         else:
@@ -242,7 +241,7 @@ class SSHControl (threading.Thread):
             return
 
     def register_after(self, id, afterCommand):
-        """Register an expect string on this block"""
+        """Register an expect string on this block."""
         # FIXME I don't think we really need locks here. appending to a list is
         # an atomic operation
         self.lock.acquire()
@@ -252,11 +251,15 @@ class SSHControl (threading.Thread):
             self.afterList[afterCommand] = [id]
         finally:
             self.lock.release()
-        self.debug('%s registered "%s"' % (session_tag(id), afterCommand))
+        self.debug('"%s" registered by %s' % (afterCommand, session_tag(id)))
 
     def _check_config(self):
-        """Very rudimentary check for valid section configuration"""
-        if self.terminate_threads: return False
+        """Very rudimentary check for valid section configuration. Returns True if
+        checks pass.
+
+        """
+        if self.terminate_threads:
+            return False
         
         if self.after:
             # check for circular refences
@@ -285,7 +288,7 @@ class SSHControl (threading.Thread):
         return True
 
     def register_sync(self, id):
-        """Register an expect string on this block"""
+        """Register an expect string on this block."""
         self.lockSync.acquire()
         try:
             self.syncList.append(id)
@@ -381,8 +384,9 @@ class SSHControl (threading.Thread):
         if not self.s:
             self.s = pxssh.pxssh()
         try:
-            # p.hollands suggestion: original_prompt=r"][#$]|~[#$]|bash.*?[#$]|[#$] |.*@.*:.*>"
-            # BROKEN original_prompt=r"[#$]|$"
+            # p.hollands suggestion:
+            # original_prompt=r"][#$]|~[#$]|bash.*?[#$]|[#$] |.*@.*:.*>" BROKEN
+            # original_prompt=r"[#$]|$"
             self.s.login(hostname, username, passwd,
                          login_timeout=self.SSH_LOGIN_TIMEOUT,
                          port=sshport, auto_prompt_reset=True)
@@ -392,8 +396,10 @@ class SSHControl (threading.Thread):
             # also trying this way
             self.s.setecho(False)
             self.s.sendline('stty -echo;')
+            # match the prompt within X seconds
             if not self.s.prompt(self.PROMPT_TIMEOUT):
-                print "could not match the prompt!"   # match the prompt within X seconds
+                print "could not match the prompt!"
+                return False
 
             if not self.s.isalive():
                 return False
@@ -416,18 +422,19 @@ class SSHControl (threading.Thread):
 
             self.debug(str(e))
 
-            self.info("SSH session login to %s FAILED... retrying in %s s" % (self.hostname,
-                                                                              self.SSH_LOGIN_REPEAT_TIMEOUT))
+            self.info("SSH login to %s FAILED... retrying in %ss" %
+                      (self.hostname, self.SSH_LOGIN_REPEAT_TIMEOUT))
 
             time.sleep(self.SSH_LOGIN_REPEAT_TIMEOUT)
             self.s.close()
             self.ssh_connect(self.hostname, self.port,
                              self.username, self.passwd)
-        except (select.error,IOError,OSError) as e:
+        except (select.error, IOError, OSError) as e:
             self.ssh_abort(e)
             return False
         except (pexpect.EOF) as e:
-            self.error("could not connect to %s. check hostname" % ansi_bold(self.hostname))
+            self.error("could not connect to %s. check hostname" %
+                       ansi_bold(self.hostname))
             self.ssh_abort(e)
             return False
         return True
