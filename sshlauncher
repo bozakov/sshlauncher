@@ -113,12 +113,18 @@ for section in config.sections():
         after = eval(after)
     except ConfigParser.NoOptionError:
         after = None
+    except SyntaxError as e:
+        print "Syntax error in config file:\n\t%s" % (e.text)
+        exit(0)
 
     try:
         sync = config.get(section, 'sync')
         sync = eval(sync)
     except ConfigParser.NoOptionError:
         sync = None
+    except SyntaxError as e:
+        print "Syntax error in config file:\n\t%s" % (e.text)
+        exit(0)
 
     #CK: maybe place another separator here (now: space)
     hosts = config.get(section, 'host').split()

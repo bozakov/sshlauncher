@@ -1,6 +1,6 @@
 SSHLauncher facilitates the execution of distributed, reproducible,
 SSH-based experiments.
-Copyright (c) 2008 Zdravko Bozakov, 
+Copyright (c) 2008 Zdravko Bozakov, Michael Bredel
 
 # License:
 
