@@ -28,7 +28,8 @@ you will probably require root privileges. However, SSHLauncher can also be exec
 
 SSHLauncher requires Python version >= 2.6 and has been tested with `pexpect` version 3.3.
 
-# Usage:
+```
+Usage:
 
     $ sshlauncher [options] configfile
 
@@ -37,8 +38,7 @@ SSHLauncher requires Python version >= 2.6 and has been tested with `pexpect` ve
     -h, --help      show this help message and exit
     -d, --debug     enable debug mode
     -e, --escape    enable interpretation of backslash escapes in commands
-    -s, --simulate  simulates the sshlauncher configuration by replacing
-    commands by relevant echos
+```
 
 For each SSH session which should be spawned, the configuration file contains a block specifying the host name, the command to be executed as well as any potential dependencies on the output of other sessions.
 
