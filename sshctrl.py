@@ -45,6 +45,7 @@ DEBUG = False
 # LSD-style debug output
 DEBUG_LABEL = '\033[43;1;37mDEBUG\033[m'
 
+
 def session_tag(id_str):
     """Print section [id] in session_tag"""
     h = hash(id_str)
@@ -53,7 +54,7 @@ def session_tag(id_str):
     ansi_bg = ansi_fg
     return ansi_color('['+id_str+']', bold=True,
                       ansi_bg=ansi_bg,
-                      ansi_fg=ansi_fg) 
+                      ansi_fg=ansi_fg)
 
 
 def ansi_color(msg, bold=True, ansi_fg=31, ansi_bg=47):
@@ -61,9 +62,9 @@ def ansi_color(msg, bold=True, ansi_fg=31, ansi_bg=47):
     # TODO check if the terminal supports it
     # see also: http://pypi.python.org/pypi/colorama
     if bold:
-        ansi_bold=1
+        ansi_bold = 1
     else:
-        ansi_bold=22
+        ansi_bold = 22
     if COLOR_TERM:
         return "\033[%d;%d;%dm%s\033[0m" % (ansi_bg, ansi_bold, ansi_fg, msg)
     else:
