@@ -35,17 +35,7 @@ You can also install SSHLauncher from PyPI, which will also install `pexpect`:
     $ pip install sshlauncher
 
 
-```
-Usage:
-
-    $ sshlauncher [options] configfile
-
-    Options:
-    --version       show program's version number and exit
-    -h, --help      show this help message and exit
-    -d, --debug     enable debug mode
-    -e, --escape    enable interpretation of backslash escapes in commands
-```
+# Usage:
 
 For each SSH session which should be spawned, the configuration file contains a block specifying the host name, the command to be executed as well as any potential dependencies on the output of other sessions.
 
@@ -63,3 +53,15 @@ command: iperf -c nodeA.filab.uni-hannover.de
 after: {'receiver':'Server listening'}
 ```
 Additional parameters may be passed from the shell through environment variables. Please refer to the [technical report](sshlauncher_tr.pdf) for detailed instructions on setting up the configuration file.
+
+To run SSHLauncher use:
+
+```
+    $ sshlauncher [options] configfile
+
+    Options:
+    --version       show program's version number and exit
+    -h, --help      show this help message and exit
+    -d, --debug     enable debug mode
+    -e, --escape    enable interpretation of backslash escapes in commands
+```
