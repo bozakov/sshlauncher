@@ -20,17 +20,22 @@ In contrast to tools such as `parallel-ssh`, SSHLauncher allows users to specify
 
 # Installation:
 
-For a system-wide SSHLauncher installation run
+For a system-wide SSHLauncher installation, clone the repository and run
 
     $ python setup.py install
 
-you will probably require root privileges. However, SSHLauncher can also be executed as a stand alone application from the local directory. Note, that SSHLauncher relies on the excellent [pexpect](https://github.com/pexpect/pexpect) package which you may need to install first (a version is included for convenience).
+you will probably need root privileges. However, SSHLauncher can also be executed directly from the local directory. Note, that SSHLauncher relies on the excellent [pexpect](https://github.com/pexpect/pexpect) package which you may need to install first.
 
     $ pip install pexpect
 
 SSHLauncher requires Python version >= 2.6 and has been tested with `pexpect` version 3.3.
 
-```shell
+You can also install SSHLauncher from PyPI, which will also install `pexpect`:
+
+    $ pip install sshlauncher
+
+
+```
 Usage:
 
     $ sshlauncher [options] configfile
