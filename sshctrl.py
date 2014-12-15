@@ -22,7 +22,7 @@ try:
 except ImportError:
     print "Could not find pexpect module. You can install it using:"
     print "    pip install pexpect"
-    raise SystemError
+    exit(1)
 import select
 import threading
 import time
@@ -45,18 +45,29 @@ DEBUG = False
 # LSD-style debug output
 DEBUG_LABEL = '\033[43;1;37mDEBUG\033[m'
 
-def session_tag(id_str, ascii_fg=31, ascii_bg=47, bold=1):
+def session_tag(id_str):
+    """Print section [id] in session_tag"""
+    h = hash(id_str)
+    ansi_fg = 30 + (h & 7)
+    # ansi_bg = 40 + (-h & 7)
+    ansi_bg = ansi_fg
+    return ansi_color('['+id_str+']', bold=True,
+                      ansi_bg=ansi_bg,
+                      ansi_fg=ansi_fg) 
+
+
+def ansi_color(msg, bold=True, ansi_fg=31, ansi_bg=47):
     """Print section [id] in session_tag"""
     # TODO check if the terminal supports it
     # see also: http://pypi.python.org/pypi/colorama
-    h = hash(id_str)
-    ascii_fg = 30 + (h & 7)
-    # ascii_bg = 40 + (-h & 7)
-    bold = 1
-    if COLOR_TERM:
-        return "\033[%d;%d;%dm[%s]\033[0m" % (ascii_bg, bold, ascii_fg, id_str)
+    if bold:
+        ansi_bold=1
     else:
-        return "[%s]" % id_str
+        ansi_bold=22
+    if COLOR_TERM:
+        return "\033[%d;%d;%dm%s\033[0m" % (ansi_bg, ansi_bold, ansi_fg, msg)
+    else:
+        return msg
 
 
 def ansi_bold(msg):
@@ -108,7 +119,7 @@ class SSHControl (threading.Thread):
                  sync=[], delay=0):
         """initialize class variables"""
         threading.Thread.__init__(self)
-        
+
         self.afterList = {}
         self.syncList = []
         self.id = id
@@ -260,7 +271,7 @@ class SSHControl (threading.Thread):
         """
         if self.terminate_threads:
             return False
-        
+
         if self.after:
             # check for circular refences
             for remote_after in [t for t in SSHControl.ssh_threads if (t.name in self.after.keys())]:

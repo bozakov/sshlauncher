@@ -1,2 +1,3 @@
 recursive-include examples *.config
 include sshlauncher_tr.pdf
+prune build
