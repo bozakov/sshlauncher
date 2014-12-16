@@ -374,19 +374,21 @@ class SSHControl (threading.Thread):
 
     def notifyAfter(self, id, after):
         """Notify a thread that the expect string has been matched"""
-        self.lock.acquire()
+        self.lock.acquire()  # TODO remove unnecessary locks
         try:
             del self.after[id]
         finally:
             self.lock.release()
         # tell user which match strings are still open
-        afters_left = ' and '.join(["still waiting for \"%s\" from %s" %
-                                    (a, session_tag(f)) for
-                                    f, a in self.after.iteritems()])
-        if afters_left:
-            afters_left = " (%s)" % afters_left
+        aremaining = None
+        if VERBOSE:
+            aremaining = ' and '.join(["\"%s\" from %s" %
+                                       (a, session_tag(f)) for
+                                       f, a in self.after.iteritems()])
+        if aremaining:
+            aremaining = " (still waiting for %s)" % aremaining
         self.info("matched \"%s\" from %s%s" % (after, session_tag(id),
-                                                afters_left))
+                                                aremaining))
 
     def notifySync(self, id):
         """Notify a thread to start in sync mode"""
