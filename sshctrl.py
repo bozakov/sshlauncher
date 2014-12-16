@@ -42,6 +42,7 @@ LOOP_DELAY = .1
 WAIT_NOTIFICATION_DELAY = 60  # seconds
 
 DEBUG = False
+VERBOSE = True
 # LSD-style debug output
 DEBUG_LABEL = '\033[43;1;37mDEBUG\033[m'
 
@@ -121,8 +122,6 @@ class SSHControl (threading.Thread):
         """initialize class variables"""
         threading.Thread.__init__(self)
 
-        self.afterList = {}
-        self.syncList = []
         self.id = id
         SSHControl.ID_STR_LEN = max(len(session_tag(id)), SSHControl.ID_STR_LEN)
 
@@ -140,6 +139,10 @@ class SSHControl (threading.Thread):
         self.after = after
         self.sync = sync
         self.port = port
+
+        # store after strings from other sessions
+        self.after_list = {}
+        self.syncList = []
 
         self.lock = threading.Lock()
         self.lockSync = threading.Lock()
@@ -198,7 +201,9 @@ class SSHControl (threading.Thread):
             # periodically tell the user what's happening
             if time.time()-timer > WAIT_NOTIFICATION_DELAY:
                 timer = time.time()
-                self.info('...waiting for %s ' % ' and '.join(['"%s" from ' %v + session_tag(k) for k, v in self.after.iteritems()]))
+                self.info('...waiting for %s ' %
+                          ' and '.join(['"%s" from ' %v + session_tag(k)
+                                        for k, v in self.after.iteritems()]))
 
         # then connect
         if not self.ssh_connect(self.hostname, self.port,
@@ -258,9 +263,9 @@ class SSHControl (threading.Thread):
         # an atomic operation
         self.lock.acquire()
         try:
-            self.afterList[afterCommand].append(id)
+            self.after_list[afterCommand].append(id)
         except KeyError:
-            self.afterList[afterCommand] = [id]
+            self.after_list[afterCommand] = [id]
         finally:
             self.lock.release()
         self.debug('"%s" registered by %s' % (afterCommand, session_tag(id)))
@@ -316,26 +321,26 @@ class SSHControl (threading.Thread):
 
         """
         try:
-            while self.afterList.keys():
-                res = self.s.expect(self.afterList.keys(), self.PEXPECT_TIMEOUT)
-                after = self.afterList.keys()[res]
+            while self.after_list.keys():
+                res = self.s.expect(self.after_list.keys(), self.PEXPECT_TIMEOUT)
+                after = self.after_list.keys()[res]
                 self.debug('"%s" matched...' % after)
 
-                for tid in self.afterList[after]:
+                for tid in self.after_list[after]:
                     for t in SSHControl.ssh_threads:
                         if t.name == tid:
                             t.notifyAfter(self.id, after)
 
                 self.lock.acquire()
                 try:
-                    del self.afterList[after]
+                    del self.after_list[after]
                 finally:
                     self.lock.release()
 
         except pexpect.EOF:
             self.info("EOF!")
         except pexpect.TIMEOUT, e:
-            self.info("timed-out waiting for: %s" % (self.afterList.keys()))
+            self.info("timed-out waiting for: %s" % (self.after_list.keys()))
             self.debug(str(e))
 
     def __str__(self):
@@ -369,12 +374,19 @@ class SSHControl (threading.Thread):
 
     def notifyAfter(self, id, after):
         """Notify a thread that the expect string has been matched"""
-        self.info("matched \"%s\" from %s" % (after, session_tag(id)))
         self.lock.acquire()
         try:
             del self.after[id]
         finally:
             self.lock.release()
+        # tell user which match strings are still open
+        afters_left = ' and '.join(["still waiting for \"%s\" from %s" %
+                                    (a, session_tag(f)) for
+                                    f, a in self.after.iteritems()])
+        if afters_left:
+            afters_left = " (%s)" % afters_left
+        self.info("matched \"%s\" from %s%s" % (after, session_tag(id),
+                                                afters_left))
 
     def notifySync(self, id):
         """Notify a thread to start in sync mode"""
