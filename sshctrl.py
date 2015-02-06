@@ -139,6 +139,7 @@ class SSHControl (threading.Thread):
         self.after = after
         self.sync = sync
         self.port = port
+        self.s = None
 
         # store after strings from other sessions
         self.after_list = {}
@@ -407,7 +408,7 @@ class SSHControl (threading.Thread):
         sshport = int(port)
         self.info("connecting to %s:%s ... " % (ansi_bold(self.hostname),
                                                 ansi_bold(self.port)))
-        if not self.s:
+        if self.s is None:
             self.s = pxssh.pxssh()
         try:
             # p.hollands suggestion:
@@ -453,6 +454,7 @@ class SSHControl (threading.Thread):
 
             time.sleep(self.SSH_LOGIN_REPEAT_TIMEOUT)
             self.s.close()
+            self.s = None
             self.ssh_connect(self.hostname, self.port,
                              self.username, self.passwd)
         except (select.error, IOError, OSError) as e:
