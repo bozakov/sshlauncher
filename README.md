@@ -65,3 +65,8 @@ To run SSHLauncher use:
     -d, --debug     enable debug mode
     -e, --escape    enable interpretation of backslash escapes in commands
 ```
+
+
+## Tips
+
+* If you are planning on opening many simultaneous SSH on a machine sessions you should consider increasing the parameter `MaxStartups` in your `sshd_config`.
