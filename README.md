@@ -28,7 +28,7 @@ you will probably need root privileges. However, SSHLauncher can also be execute
 
     $ pip install pexpect
 
-SSHLauncher requires Python version >= 2.6 and has been tested with `pexpect` version 3.3.
+SSHLauncher requires Python version >= 2.6 and has been tested with `pexpect` version 3.3. Note: as of November 2015 the 4.x branch of expect does not run with Python 2.x. You can checkout the last working version using `sudo pip install pexpect==3.3`
 
 You can also install SSHLauncher from PyPI, which will also install `pexpect`:
 
@@ -52,7 +52,13 @@ host: nodeB.filab.uni-hannover.de
 command: iperf -c nodeA.filab.uni-hannover.de
 after: {'receiver':'Server listening'}
 ```
-Additional parameters may be passed from the shell through environment variables. Please refer to the [technical report](sshlauncher_tr.pdf) for detailed instructions on setting up the configuration file.
+
+
+Additional parameters may be passed from the OS shell to the sshlauncher script for iterating through experiment parameters: when sshlauncher is started all environment variables with a name beginning with `SL_` are imported. An example of setting TCP window sizes within a script is
+
+    command: iperf -c nodeA.filab.uni-hannover.de  -w SL_WIN_SIZE
+
+Please refer to the [technical report](sshlauncher_tr. pdf) for detailed instructions on setting up the configuration file.
 
 To run SSHLauncher use:
 
