@@ -37,26 +37,45 @@ You can also install SSHLauncher from PyPI, which will also install `pexpect`:
 
 # Usage:
 
-For each SSH session which should be spawned, the configuration file contains a block specifying the host name, the command to be executed as well as any potential dependencies on the output of other sessions.
+For each SSH session which should be spawned, the configuration file contains a block specifying the host name (`host:`), user (`user:`), the command to be executed (`comand:`) as well as any potential dependencies on the output of other sessions (`after:`).
 
 ```INI
 # prepare receiver
 [receiver]
+user: bozakov
 host: nodeA.filab.uni-hannover.de
 password: xyz123
 command: iperf -s
 
 # start sender when receiver is ready
 [sender_session]
+user: bozakov
 host: nodeB.filab.uni-hannover.de
 command: iperf -c nodeA.filab.uni-hannover.de
+after: {'receiver':'Server listening'}
+```
+
+A `[DEFAULT]` section may be added to set default values or variables for use within each session: 
+
+```
+[DEFAULT]
+user: bozakov
+RCV_IP = 192.168.1.147
+```
+
+then: 
+
+```
+[sender_session]
+host: nodeB.filab.uni-hannover.de
+command: iperf -c  %(RCV_IP)s
 after: {'receiver':'Server listening'}
 ```
 
 
 Additional parameters may be passed from the OS shell to the sshlauncher script for iterating through experiment parameters: when sshlauncher is started all environment variables with a name beginning with `SL_` are imported. An example of setting TCP window sizes within a script is
 
-    command: iperf -c nodeA.filab.uni-hannover.de  -w SL_WIN_SIZE
+    command: iperf -c nodeA.filab.uni-hannover.de -w %(SL_WIN_SIZE)s
 
 Please refer to the [technical report](sshlauncher_tr. pdf) for detailed instructions on setting up the configuration file.
 
