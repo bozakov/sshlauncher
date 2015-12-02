@@ -231,6 +231,8 @@ class SSHControl (threading.Thread):
 
         # execute command string
         self.info("executing: \033[1;34m%s\033[m " % (self.command))
+        # escape single quotes in command
+        self.command = self.command.replace("'", r"'\''")
         # spawn a new shell session on remote host and pipe command
         # TODO currently we assume that bash is installed
         if SSHControl.ESCAPE:
