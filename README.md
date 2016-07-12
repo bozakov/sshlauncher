@@ -89,6 +89,7 @@ To run SSHLauncher use:
     -h, --help      show this help message and exit
     -d, --debug     enable debug mode
     -e, --escape    enable interpretation of backslash escapes in commands
+    -s, --simulate  simulates the execution of a test run by mimicking the expected outputs
 ```
 
 
