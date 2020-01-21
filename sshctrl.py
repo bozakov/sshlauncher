@@ -17,20 +17,21 @@
 #    along with Foobar.  If not, see <http://www.gnu.org/licenses/>.
 #
 try:
-    import pxssh
     import pexpect
+    from pexpect import pxssh
 except ImportError:
-    print "Could not find pexpect module. You can install it using:"
-    print "    pip install pexpect"
+    print("Could not find pexpect module. You can install it using:")
+    print("    pip install pexpect")
     exit(1)
 import select
 import threading
 import time
 import os
+from packaging import version
 
-if float(pexpect.__version__) < 3.0:
-    print 'The installed version of pexpect is not supported.'
-    print 'Please install pexect>=3.0.'
+if version.parse(pexpect.__version__) < version.parse("3.0"):
+    print('The installed version of pexpect is not supported.')
+    print('Please install pexpect>=3.0.')
     exit(3)
 
 COLOR_TERM = False
@@ -162,7 +163,7 @@ class SSHControl (threading.Thread):
         # register own expect string on thread id specified by after
         if self.after:
             for t in SSHControl.ssh_threads:
-                for key in self.after.keys():
+                for key in list(self.after.keys()):
                     if t.name == str(key):
                         t.register_after(self.id, self.after[key])
         self.registered_after = True
@@ -204,7 +205,7 @@ class SSHControl (threading.Thread):
                 timer = time.time()
                 self.info('...waiting for %s ' %
                           ' and '.join(['"%s" from ' %v + session_tag(k)
-                                        for k, v in self.after.iteritems()]))
+                                        for k, v in self.after.items()]))
 
         # then connect
         if not self.ssh_connect(self.hostname, self.port,
@@ -253,7 +254,7 @@ class SSHControl (threading.Thread):
                 self.ssh_disconnect()
             else:
                 self.error("did not reach the prompt! something went wrong")
-                print self.s.before
+                print(self.s.before)
                 raise SystemError
                 # if DEBUG : self.s.interact(local=locals())
         except (select.error, IOError, OSError):
@@ -283,8 +284,8 @@ class SSHControl (threading.Thread):
 
         if self.after:
             # check for circular refences
-            for remote_after in [t for t in SSHControl.ssh_threads if (t.name in self.after.keys())]:
-                if (remote_after.after and (self.id in remote_after.after.keys())):
+            for remote_after in [t for t in SSHControl.ssh_threads if (t.name in list(self.after.keys()))]:
+                if (remote_after.after and (self.id in list(remote_after.after.keys()))):
                     self.error("cirular reference %s <-> %s?" %
                                (session_tag(self.id),
                                 session_tag(remote_after.id)))
@@ -324,9 +325,9 @@ class SSHControl (threading.Thread):
 
         """
         try:
-            while self.after_list.keys():
-                res = self.s.expect(self.after_list.keys(), self.PEXPECT_TIMEOUT)
-                after = self.after_list.keys()[res]
+            while list(self.after_list.keys()):
+                res = self.s.expect(list(self.after_list.keys()), self.PEXPECT_TIMEOUT)
+                after = list(self.after_list.keys())[res]
                 self.debug('"%s" matched...' % after)
 
                 for tid in self.after_list[after]:
@@ -342,8 +343,8 @@ class SSHControl (threading.Thread):
 
         except pexpect.EOF:
             self.info("EOF!")
-        except pexpect.TIMEOUT, e:
-            self.info("timed-out waiting for: %s" % (self.after_list.keys()))
+        except pexpect.TIMEOUT as e:
+            self.info("timed-out waiting for: %s" % (list(self.after_list.keys())))
             self.debug(str(e))
 
     def __str__(self):
@@ -354,7 +355,7 @@ class SSHControl (threading.Thread):
             id_label = session_tag(self.id).ljust(SSHControl.ID_STR_LEN)
             msg = "%s   %s" % (id_label, msg)
             if stdout:
-                print msg
+                print(msg)
             return msg
 
     def debug(self, msg, stdout=True):
@@ -365,14 +366,14 @@ class SSHControl (threading.Thread):
             id_label = session_tag(self.id).ljust(SSHControl.ID_STR_LEN)
             msg = "%s   %s   %s" % (id_label, msg, DEBUG_LABEL)
             if stdout:
-                print msg
+                print(msg)
 
     def error(self, msg, stdout=True):
         with SSHControl.thread_lock:
             id_label = session_tag(self.id).ljust(SSHControl.ID_STR_LEN)
             msg = "%s   %s" % (id_label, '\033[1;31m'+msg+'\033[0m')
             if stdout:
-                print msg
+                print(msg)
             return msg
 
     def notifyAfter(self, id, after):
@@ -387,7 +388,7 @@ class SSHControl (threading.Thread):
         if VERBOSE:
             aremaining = ' and '.join(["\"%s\" from %s" %
                                        (a, session_tag(f)) for
-                                       f, a in self.after.iteritems()])
+                                       f, a in self.after.items()])
         if aremaining:
             aremaining = " (still waiting for %s)" % aremaining
         self.info("matched \"%s\" from %s%s" % (after, session_tag(id),
@@ -427,7 +428,7 @@ class SSHControl (threading.Thread):
             self.s.sendline('stty -echo;')
             # match the prompt within X seconds
             if not self.s.prompt(self.PROMPT_TIMEOUT):
-                print "could not match the prompt!"
+                print("could not match the prompt!")
                 return False
 
             if not self.s.isalive():
@@ -491,6 +492,6 @@ class SSHControl (threading.Thread):
         result = ""
         for t in SSHControl.ssh_threads:
             if not (t.after is None):
-                if self.id in t.after.keys():
+                if self.id in list(t.after.keys()):
                     result = result + "echo \"" + t.after.get(self.id) + "\"; "
         return result

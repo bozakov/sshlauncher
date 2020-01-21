@@ -17,7 +17,7 @@
 #    You should have received a copy of the GNU General Public License
 #    along with Foobar.  If not, see <http://www.gnu.org/licenses/>.
 #
-import ConfigParser
+import configparser
 import code
 import logging
 import os
@@ -62,35 +62,35 @@ parser.add_option("-s", "--simulate",
 try:
     configfile = args[0]
 except (IndexError, IOError):
-    print "you must specify a configuration file!\n"
+    print("you must specify a configuration file!\n")
     raise SystemExit
 
 if opt.debug:
     sshctrl.DEBUG = opt.debug
-    print "*** DEBUG mode ***"
+    print("*** DEBUG mode ***")
 if opt.escape:
     sshctrl.SSHControl.ESCAPE = opt.escape
-    print "*** ESCAPE mode ***"
+    print("*** ESCAPE mode ***")
 if opt.simulate:
     sshctrl.SSHControl.SIMULATE = opt.simulate
-    print "*** SIMULATE mode ***"
+    print("*** SIMULATE mode ***")
 
 
 # import all bash envionment variables which start with SL_
 defaults={}
-for param in os.environ.keys():
+for param in list(os.environ.keys()):
     if param[:3]=='SL_':
         defaults[param]=os.environ[param]
 
 if sshctrl.DEBUG and defaults:
-    print "Using environment variables: "
+    print("Using environment variables: ")
     for d in defaults:
-        print "\t %s = %s" % (d,defaults[d],)
+        print("\t %s = %s" % (d,defaults[d],))
 
 # parse configuration file
-config = ConfigParser.ConfigParser(defaults)
+config = configparser.ConfigParser(defaults)
 if not config.read(configfile):
-    print "no configuration file named %s!\n" % configfile
+    print("no configuration file named %s!\n" % configfile)
     raise SystemExit
 
 # create a list which will store all session threads
@@ -100,30 +100,30 @@ session_list=[]
 for section in config.sections():
     try:
         pwd = config.get(section, 'password')
-    except ConfigParser.NoOptionError:
+    except configparser.NoOptionError:
         pwd = DEFAULTPASSWORD
 
     try:
         port = config.get(section, 'port')
-    except ConfigParser.NoOptionError:
+    except configparser.NoOptionError:
         port = DEFAULTPORT
 
     try:
         after = config.get(section, 'after')
         after = eval(after)
-    except ConfigParser.NoOptionError:
+    except configparser.NoOptionError:
         after = None
     except SyntaxError as e:
-        print "Syntax error in config file:\n\t%s" % (e.text)
+        print("Syntax error in config file:\n\t%s" % (e.text))
         exit(0)
 
     try:
         sync = config.get(section, 'sync')
         sync = eval(sync)
-    except ConfigParser.NoOptionError:
+    except configparser.NoOptionError:
         sync = None
     except SyntaxError as e:
-        print "Syntax error in config file:\n\t%s" % (e.text)
+        print("Syntax error in config file:\n\t%s" % (e.text))
         exit(0)
 
     #CK: maybe place another separator here (now: space)
@@ -133,9 +133,9 @@ for section in config.sections():
             session_list.append(sshctrl.SSHControl(section, host, port,
                                                   config.get(section, 'user'), pwd,
                                                   config.get(section, 'command'), after, sync,))
-    except ConfigParser.InterpolationMissingOptionError as e:
-        print "\nERROR:\tvariable not defined\n"
-        print e
+    except configparser.InterpolationMissingOptionError as e:
+        print("\nERROR:\tvariable not defined\n")
+        print(e)
         raise SystemExit
 
 # store list of session threads
@@ -147,9 +147,9 @@ sshctrl.SSHControl.thread_lock = threading.Lock()
 
 
 if __name__ == '__main__':
-    print "SSHLauncher version %s" % __version__
-    print sys.version
-    print "-"*80
+    print("SSHLauncher version %s" % __version__)
+    print(sys.version)
+    print("-"*80)
 
     # start all threads in thread list
     for ssh_thread in session_list:
@@ -159,7 +159,7 @@ if __name__ == '__main__':
         try:
             time.sleep(1)
         except KeyboardInterrupt:
-            print "\n\n Terminating!\n"
+            print("\n\n Terminating!\n")
             break
 
     for sshThread in session_list:
