@@ -440,7 +440,7 @@ class SSHControl (threading.Thread):
             if DEBUG:
                     self.debug("writing log file to %s" %
                                ansi_bold(self.id+'.log'))
-                    fout = file('%s.log' % (self.id), 'w')
+                    fout = open('%s.log' % (self.id), 'wb')
                     self.s.logfile = fout
 
         except pxssh.ExceptionPxssh as e:
